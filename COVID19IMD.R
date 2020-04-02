@@ -44,7 +44,7 @@ ggplot(quintiles, aes(x=date, y=cases, colour=as.factor(quintile)))+
   geom_line()+
   theme_classic()+
   scale_colour_manual(values=c("#fcc5c0", "#fa9fb5", "#f768a1", "#c51b8a", "#7a0177"), name="IMD quintile",
-                      labels=c("Q1 (most deprived)", "Q2", "Q3", "Q4", "Q5 (least deprived)"))+
+                      labels=c("Q1 (least deprived)", "Q2", "Q3", "Q4", "Q5 (most deprived)"))+
   scale_x_continuous(name="Date", breaks=c(1,6,11,16,21), labels=c("9th Mar", "14th Mar", "19th Mar", "24th Mar", "29th Mar"))+
   scale_y_continuous(name="Cumulative known cases")+
   labs(title="Cumulative COVID-19 cases by deprivation quintile", subtitle="Deprivation estimated using mean IMD level across each UTLA",
