@@ -153,7 +153,7 @@ map.data <- left_join(map.data, keydata, by=c("IMDtert", "morttert"))
 map.data <- map.data[,-c(1,3:6)]
 
 #Plot for Sheffield 
-plot <- ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=colour, geometry=geometry))+
+plot <- ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=RGB, geometry=geometry))+
   geom_sf()+
   theme_classic()+
   scale_fill_identity()+
@@ -191,7 +191,7 @@ dev.off()
 #Editable plot: just change the LA name for any other English Lower Tier LA, 
 #or select a group of LAs with LAname %in% c("x", "y"...) 
 #Don't forget to update the title though
-ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=colour, geometry=geometry))+
+ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=RGB, geometry=geometry))+
   geom_sf()+
   theme_classic()+
   scale_fill_identity()+
