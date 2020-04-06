@@ -78,10 +78,10 @@ data_LA <- subset(data_LSOA, is.na(name))
 data_LSOA <- subset(data_LSOA, !is.na(name))
 
 #Bring in 2019 IMD data (England only)
-temp3 <- tempfile()
+temp <- tempfile()
 source <- "https://opendatacommunities.org/downloads/cube-table?uri=http%3A%2F%2Fopendatacommunities.org%2Fdata%2Fsocietal-wellbeing%2Fimd2019%2Findices"
-temp3 <- curl_download(url=source, destfile=temp3, quiet=FALSE, mode="wb")
-IMD <- read.csv(temp3)
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+IMD <- read.csv(temp)
 #IMD <- subset(IMD, (Measurement=="Decile " | Measurement=="Rank") & Indices.of.Deprivation=="a. Index of Multiple Deprivation (IMD)")
 IMD <- subset(IMD, (Measurement=="Decile " | Measurement=="Rank") & Indices.of.Deprivation=="e. Health Deprivation and Disability Domain")
 IMD_wide <- spread(IMD, Measurement, Value)
@@ -91,21 +91,7 @@ colnames(data_LSOA) <- c("code", "name", "pop", "ex_deaths", "mortrate", "decile
 #Rank LSOAs within each decile
 data_LSOA <- data_LSOA %>%
   group_by(decile) %>%
-  mutate(decile_rank = order(order(rank, decreasing=TRUE)))
-
-tiff("Outputs/COVIDMortDepGrid.tiff", units="in", width=15, height=5, res=300)
-ggplot(subset(data_LSOA, !is.na(decile)), aes(y=as.factor(decile), x=decile_rank, fill=mortrate))+
-  geom_tile()+
-  theme_classic()+
-  scale_fill_paletteer_c("viridis::magma", direction=-1,name="Potential deaths\nper 100,000")+
-  scale_y_discrete(name="Health deprivation & disability", labels=c("1 - most deprived", "2", "3", "4", "5", "6", "7", 
-                                               "8", "9", "10 - least deprived"))+
-  scale_x_continuous(name="")+
-  theme(axis.text.x=element_blank(), axis.line.x=element_blank(), axis.ticks.x=element_blank())+
-  labs(title="Maximum potential exposure to COVID-19 mortality by health deprivation",
-       subtitle="Calculated using LSOA-level population age/sex distribution and observed Case Fatality Rates from Italy, assuming 100% COVID-19 prevalence",
-       caption="Population data from ONS, CFRs from Istituto Superiore di Sanità\nPlot by @VictimOfMaths")
-dev.off()
+  mutate(decile_rank = order(order(mortrate, decreasing=FALSE)))
 
 #calculate mean mortality rates by decile and overall (population weighted)
 data_LSOA <- data_LSOA %>%
@@ -117,42 +103,37 @@ data_LSOA <- ungroup(data_LSOA)
 data_LSOA <- data_LSOA %>%
   mutate(popmean = weighted.mean(mortrate, pop))
 
-ggplot(subset(data_LSOA, !is.na(decile)), aes(x=mortrate, y=as.factor(decile), colour=mortrate))+
-  geom_segment(aes(x=popmean, xend=popmean, y=Inf, yend=-Inf))+
-  geom_segment(aes(x=decilemean, xend=decilemean, y=Inf, yend=-Inf))+
-  geom_point(shape=21)+
-  theme_classic()
-
-
 #Download shapefile of LSOA boundaries
-temp4 <- tempfile()
-temp5 <- tempfile()
+temp <- tempfile()
+temp2 <- tempfile()
 source <- "https://opendata.arcgis.com/datasets/e886f1cd40654e6b94d970ecf437b7b5_0.zip?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D"
-temp4 <- curl_download(url=source, destfile=temp4, quiet=FALSE, mode="wb")
-unzip(zipfile=temp4, exdir=temp5)
-shapefile <- st_read(file.path(temp5,"Lower_Layer_Super_Output_Areas_December_2011_Boundaries_EW_BFC.shp"))
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+unzip(zipfile=temp, exdir=temp2)
+shapefile <- st_read(file.path(temp2,"Lower_Layer_Super_Output_Areas_December_2011_Boundaries_EW_BFC.shp"))
 names(shapefile)[names(shapefile) == "LSOA11CD"] <- "code"
 
 map.data <- full_join(shapefile, data_LSOA, by="code")
 
-ggplot(subset(map.data, substr(name, 1,5)=="Sheff"), aes(fill=mortrate, geometry=geometry))+
-  geom_sf()+
-  theme_classic()+
-  scale_fill_paletteer_c("pals::ocean.tempo", name="Potential deaths\nper 100,000")+
-  theme(axis.line=element_blank(), axis.ticks=element_blank(), axis.text=element_blank(),
-        axis.title=element_blank(),  plot.title=element_text(face="bold"))+
-  labs(title="Maximum potential exposure to COVID-19 mortality by deprivation",
-       subtitle="Calculated using LSOA-level population age/sex distribution and observed Case Fatality Rates from Italy, assuming 100% COVID-19 prevalence",
-       caption="Population data from ONS, CFRs from Istituto Superiore di Sanità\nPlot by @VictimOfMaths")
-
 #Bring in Local Authorities (LADs)
-temp6 <- tempfile()
+temp <- tempfile()
 source <- "https://opendata.arcgis.com/datasets/fe6c55f0924b4734adf1cf7104a0173e_0.csv"
-temp6 <- curl_download(url=source, destfile=temp6, quiet=FALSE, mode="wb")
-LSOAtoLAD <- read.csv(temp6)[,c(4,10,11)]
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+LSOAtoLAD <- read.csv(temp)[,c(4,10,11)]
 colnames(LSOAtoLAD) <- c("code", "LAcode", "LAname")
   
 map.data <- full_join(map.data, LSOAtoLAD, by="code")
+
+#Bring in Regions
+temp <- tempfile()
+source <- "https://opendata.arcgis.com/datasets/0c3a9643cc7c4015bb80751aad1d2594_0.csv"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+LADtoRegion <- read.csv(temp)[,c(1,4)]
+colnames(LADtoRegion) <- c("LAcode", "Region")
+
+map.data <- full_join(map.data, LADtoRegion, by="LAcode")
+
+#Remove Scottish Data Zones which have snuck into the data
+map.data <- subset(map.data, substr(code, 1,1)=="E")
 
 #Bivariate map
 #tertile the IMD and mortrate variables
@@ -160,39 +141,18 @@ map.data <- full_join(map.data, LSOAtoLAD, by="code")
 map.data$IMDtert <- quantcut(-map.data$rank, q=3, labels=FALSE)
 map.data$morttert <- quantcut(map.data$mortrate, q=3, labels=FALSE)
 
-#generate 9-category index for map key
-map.data$key <- case_when(
-  map.data$IMDtert==1 & map.data$morttert==1 ~ 1,
-  map.data$IMDtert==1 & map.data$morttert==2 ~ 2,
-  map.data$IMDtert==1 & map.data$morttert==3 ~ 3,
-  map.data$IMDtert==2 & map.data$morttert==1 ~ 4,
-  map.data$IMDtert==2 & map.data$morttert==2 ~ 5,
-  map.data$IMDtert==2 & map.data$morttert==3 ~ 6,
-  map.data$IMDtert==3 & map.data$morttert==1 ~ 7,
-  map.data$IMDtert==3 & map.data$morttert==2 ~ 8,
-  map.data$IMDtert==3 & map.data$morttert==3 ~ 9
-)
+#Generate key
+keydata <- data.frame(IMDtert=c(1,1,1,2,2,2,3,3,3), morttert=c(1,2,3,1,2,3,1,2,3),
+                      RGB=c("#e8e8e8","#ace4e4","#5ac8c8","#dfb0d6","#a5add3",
+                               "#5698b9","#be64ac","#8c62aa","#3b4994"))
 
-#fill in corresponding colours
-map.data$colour <- case_when(
-  map.data$key==1 ~ "#e8e8e8",
-  map.data$key==2 ~ "#ace4e4",
-  map.data$key==3 ~ "#5ac8c8",
-  map.data$key==4 ~ "#dfb0d6",
-  map.data$key==5 ~ "#a5add3",
-  map.data$key==6 ~ "#5698b9",
-  map.data$key==7 ~ "#be64ac",
-  map.data$key==8 ~ "#8c62aa",
-  map.data$key==9 ~ "#3b4994"
-)
+#Bring colours into main data for plotting
+map.data <- left_join(map.data, keydata, by=c("IMDtert", "morttert"))
 
-#generate dataframe for key
-keydata <- map.data %>%
-  filter(!is.na(colour)) %>%
-  group_by(IMDtert, morttert) %>%
-  summarise(RGB=unique(colour))
+#strip out a few unnecessary columns for tidiness
+map.data <- map.data[,-c(1,3:6)]
 
-#Plot for Sheffield
+#Plot for Sheffield 
 plot <- ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=colour, geometry=geometry))+
   geom_sf()+
   theme_classic()+
@@ -228,47 +188,15 @@ ggdraw()+
   draw_plot(key, 0.03,0.03,0.3,0.3)
 dev.off()
 
-plot <- ggplot(subset(map.data, substr(name, 1,5)=="Sheff"), aes(fill=colour, geometry=geometry))+
+#Editable plot: just change the LA name for any other English Lower Tier LA, 
+#or select a group of LAs with LAname %in% c("x", "y"...) 
+#Don't forget to update the title though
+ggplot(subset(map.data, LAname=="Sheffield"), aes(fill=colour, geometry=geometry))+
   geom_sf()+
   theme_classic()+
   scale_fill_identity()+
   theme(axis.line=element_blank(), axis.ticks=element_blank(), axis.text=element_blank(),
         axis.title=element_blank(),  plot.title=element_text(face="bold"))+
   labs(title="Mapping potential COVID-19 risk across Sheffield",
-       subtitle="LSOA-level health deprivation and potential COVID-19 mortality risk based on age-sex structure of population",
-       caption="Population data from ONS, CFRs from Istituto Superiore di Sanità\nPlot by @VictimOfMaths")+
-  annotate("text", x=-1.38, y=53.45, label="High deprivation,\nyoung population", size=3)+
-  annotate("text", x=-1.34, y=53.38, label="High deprivation,\nold population", size=3)+
-  annotate("text", x=-1.75, y=53.4, label="Low deprivation,\nold population", size=3)+
-  geom_curve(aes(x=-1.38, y=53.44, xend=-1.4, yend=53.42), curvature=-0.15)+
-  geom_curve(aes(x=-1.345, y=53.37, xend=-1.36, yend=53.355), curvature=-0.15)+
-  geom_curve(aes(x=-1.725, y=53.4, xend=-1.62, yend=53.36), curvature=0.15)
-
-key <- ggplot(keydata)+
-  geom_tile(aes(x=morttert, y=IMDtert, fill=RGB))+
-  scale_fill_identity()+
-  labs(x = expression("Greater age-based COVID-19 risk" %->%  ""),
-       y = expression("Greter health deprivation" %->%  "")) +
-  theme_classic() +
-  # make font small enough
-  theme(
-    axis.title = element_text(size = 8),axis.line=element_blank(), 
-    axis.ticks=element_blank(), axis.text=element_blank())+
-  # quadratic tiles
-  coord_fixed()
-
-tiff("Outputs/COVIDBivariateSheff.tiff", units="in", width=12, height=8, res=300)
-ggdraw()+
-  draw_plot(plot, 0,0,1,1)+
-  draw_plot(key, 0.03,0.03,0.3,0.3)
-dev.off()
-
-ggplot(subset(map.data, LAname=="Leeds"), aes(fill=colour, geometry=geometry))+
-  geom_sf()+
-  theme_classic()+
-  scale_fill_identity()+
-  theme(axis.line=element_blank(), axis.ticks=element_blank(), axis.text=element_blank(),
-        axis.title=element_blank(),  plot.title=element_text(face="bold"))+
-  labs(title="Mapping potential COVID-19 risk across Leeds",
        subtitle="LSOA-level health deprivation and potential COVID-19 mortality risk based on age-sex structure of population",
        caption="Population data from ONS, CFRs from Istituto Superiore di Sanità\nPlot by @VictimOfMaths")
