@@ -72,7 +72,7 @@ tiles <- ggplot(heatmap, aes(x=date, y=fct_reorder(name, maxday), fill=maxprop))
   theme_classic()+
   scale_fill_distiller(palette="Spectral")+
   scale_y_discrete(name="")+
-  scale_x_date(name="Date", limits=as.Date(c("2020-03-01", "2020-04-22")), expand=c(0,0))+
+  scale_x_date(name="Date", limits=as.Date(c("2020-03-01", "2020-04-24")), expand=c(0,0))+
   labs(title="Timelines for COVID-19 cases in English Local Authorities",
        subtitle="The heatmap represents the 5-day rolling average of the number of new confirmed cases, normalised to the maximum value within the Local Authority.\nLAs are ordered by the date at which they reached their peak number of new cases. Bars on the right represent the absolute number of cases in each LA.",
        caption="Data from Public Health England | Plot by @VictimOfMaths")+
