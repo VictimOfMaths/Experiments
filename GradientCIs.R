@@ -7,6 +7,7 @@ library(devoutsvg)
 library(svgpatternsimple)
 library(poissoned)
 library(ggplot2)
+library(tidyverse)
 
 fadedown <- encode_pattern_params_as_hex_colour(pattern_name="gradient",angle=90, colour1="White", colour2="#0570b0")
 fadeup <- encode_pattern_params_as_hex_colour(pattern_name="gradient",angle=270,  colour1="White", colour2="#0570b0")
