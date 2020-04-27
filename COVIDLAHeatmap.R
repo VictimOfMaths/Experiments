@@ -11,7 +11,7 @@ options(scipen = 999)
 temp <- tempfile()
 source <- "https://coronavirus.data.gov.uk/downloads/csv/coronavirus-cases_latest.csv"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
-data <- fread(temp)
+data <- fread(temp)[,c(1,2,3,4,5,8)]
 colnames(data) <- c("name", "code", "type", "date", "cases", "cumul_cases")
 data$date <- as.Date(data$date)
 data <- subset(data, type=="Upper tier local authority")
