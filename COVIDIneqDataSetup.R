@@ -117,7 +117,7 @@ engpop$time <- case_when(
 #Interpolate missing weeks between mid-year figures (take to be week 26)
 #At the same time extrapolate out to mid-year 2020
 exposures.splines <- function(data){
-  interpolation <- spline(data$time, data$exposure, xout=seq(from=1, to=26+52*13+2*53, 1))
+  interpolation <- spline(data$time, data$exposure, xout=seq(from=1, to=26+52*13+2*53, 1), method="natural")
 #Set up week structure
 weeks <- c(unlist(lapply(c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26), function(x){1:x})))
 years <- c(rep(2005:2020, c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26)))
