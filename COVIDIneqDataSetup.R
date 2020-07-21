@@ -4,6 +4,7 @@ library(tidyverse)
 library(curl)
 library(readxl)
 library(lubridate)
+library(paletteer)
 
 #2005-2018 deaths registed from https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/adhocs/10929weeklydeathsregistrationsbyimdsexandagegroupenglandandwales2005to2018
 temp <- tempfile()
@@ -133,16 +134,11 @@ engpop.interpolated <- engpop %>%
   mutate(index=seq(1:n()), date=as.Date("2005-01-03")+weeks(index-1)) %>% 
   ungroup()
   
-#Check visually
+#Check interpolation visually
 ggplot()+
   geom_line(data=engpop.interpolated, aes(x=date, y=exposures))+
   geom_point(data=engpop, aes(x=as.Date(paste0(year, "-06-01")), y=exposure))+
   facet_grid(Sex~IMD)+
-  theme_classic()
-
-ggplot()+
-  geom_line(data=subset(engpop.interpolated, Sex=="Male" & IMD==10), aes(x=date, y=exposures))+
-  geom_point(data=subset(engpop, Sex=="Male" & IMD==10), aes(x=as.Date(paste0(year, "-06-01")), y=exposure))+
   theme_classic()
 
 #Merge interpolated populations into 2005-2018 deaths data
@@ -192,10 +188,19 @@ data <- data[,-c(4,8,9)]
 
 write.csv(data, "IMDDataForJM.csv")
 
-#Plot mortality rates
+#Plot mortality rates over time before GAM modelling
+tiff("Outputs/AllCauseDeathsxIMD.tiff", units="in", width=12, height=8, res=500)
 data %>% 
   mutate(mortrate=deaths*100000/exposures) %>% 
   ggplot(aes(x=date, y=mortrate, colour=as.factor(IMD)))+
-  geom_line()+
+  geom_line(size=0.3)+
+  scale_colour_paletteer_d("dichromat::BluetoOrange_10", name="IMD decile", 
+                           labels=c("1 (most deprived)","2","3","4","5","6","7","8","9","10 (least deprived)"))+
+  scale_x_date(name="Date")+
+  scale_y_continuous(name="Weekly deaths per 100,000")+
   facet_grid(Sex~.)+
-  theme_classic()
+  theme_classic()+
+  theme(strip.background=element_blank(), strip.text=element_text(face="bold", size=rel(1)))
+dev.off()
+
+
