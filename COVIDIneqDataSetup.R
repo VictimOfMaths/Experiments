@@ -146,16 +146,16 @@ data <- merge(engpop.interpolated, deaths0518, all.x=TRUE)[,-c(6)]
 
 #Bring in 2020 deaths
 temp <- tempfile()
-source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fdeathsinvolvingcovid19bylocalareaanddeprivation%2f1march2020to31may2020/referencetablesworkbook1.xlsx"
+source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fdeathsinvolvingcovid19bylocalareaanddeprivation%2f1march2020to30june2020/referencetablesworkbook2.xlsx"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
-newdata <- read_excel(temp, sheet="Table 3", range="A6:X95", col_names=FALSE)[,c(1,2,3,5,11,17)]
+newdata <- read_excel(temp, sheet="Table 3", range="A6:W95", col_names=FALSE)[,c(1,2,3,5,11,17,23)]
 colnames(newdata) <- c("cause", "Sex", "IMD", "March", "April",
-                      "May")
+                      "May", "June")
 newdata$IMD <- rep(c(1:10),9)
 newdata <- subset(newdata, Sex!="Persons")
 
 newdata <- newdata %>% 
-  gather(month, deaths, c(4:6)) %>% 
+  gather(month, deaths, c(4:7)) %>% 
   spread(cause, deaths)
 
 newdata$Sex <- if_else(newdata$Sex=="Males", "Male", "Female")
@@ -166,25 +166,46 @@ newdata$year <- 2020
 data$month <- case_when(
   data$year==2020 & data$week %in% c(10:13) ~ "March",
   data$year==2020 & data$week %in% c(14:18) ~ "April",
-  data$year==2020 & data$week %in% c(19:22) ~ "May"
+  data$year==2020 & data$week %in% c(19:22) ~ "May",
+  data$year==2020 & data$week %in% c(23:27) ~ "June"
 )
 
 data <- merge(data, newdata, by=c("Sex", "IMD", "year", "month"), all.x=TRUE)
 
-#Adjust 2020 deaths to weekly estimates - assume deaths in 2020 are evenly spread across weeks within month
-data$deaths.y <- case_when(
-  data$month %in% c("March", "May") ~ data$deaths.y/4,
-  data$month=="April" ~ data$deaths.y/5)
-data$COVID_deaths <- case_when(
-  data$month %in% c("March", "May") ~ data$COVID_deaths/4,
-  data$month=="April" ~ data$COVID_deaths/5)
-data$Other_deaths <- case_when(
-  data$month %in% c("March", "May") ~ data$Other_deaths/4,
-  data$month=="April" ~ data$Other_deaths/5)
+#Adjust 2020 deaths to weekly estimates - assume within-month distribution of deaths follows
+#the same patterns as the distribution of deaths in the overall population in England
+
+#Bring in overall deaths
+temp <- tempfile()
+source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fweeklyprovisionalfiguresondeathsregisteredinenglandandwales%2f2020/publishedweek282020.xlsx"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+alldeaths <- as.data.frame(t(read_excel(temp, sheet="Weekly figures 2020", range="L87:AC95", col_names=FALSE)))
+alldeaths <- alldeaths %>% 
+  mutate(totdeaths=V1+V2+V3+V4+V5+V6+V7+V8+V9, week=c(10:27), year=2020)
+
+#calculate within-month proportions
+alldeaths$month <- case_when(
+  alldeaths$week %in% c(10:13) ~ "March",
+  alldeaths$week %in% c(14:18) ~ "April",
+  alldeaths$week %in% c(19:22) ~ "May",
+  alldeaths$week %in% c(23:27) ~ "June"
+)
+
+alldeaths <- alldeaths %>% 
+  group_by(month) %>% 
+  mutate(total=sum(totdeaths), prop=totdeaths/total) %>% 
+  ungroup()
+
+data <- merge(data, alldeaths[,c(11,12,15)], all.x=TRUE)
+
+#Apportion 2020 deaths within month
+data$deaths.y <- data$deaths.y*data$prop
+data$COVID_deaths <- data$COVID_deaths*data$prop
+data$Other_deaths <- data$Other_deaths*data$prop
 
 data$deaths <- coalesce(data$deaths.x, data$deaths.y)
 
-data <- data[,-c(4,8,9)]
+data <- data[,-c(5,8,9)]
 
 write.csv(data, "IMDDataForJM.csv")
 
@@ -202,5 +223,3 @@ data %>%
   theme_classic()+
   theme(strip.background=element_blank(), strip.text=element_text(face="bold", size=rel(1)))
 dev.off()
-
-
