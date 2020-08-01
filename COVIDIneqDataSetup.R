@@ -44,18 +44,10 @@ deaths2016$year <- 2016
 deaths2017$year <- 2017
 deaths2018$year <- 2018
 
-#Merge and collapse age groups
-deaths0518 <- bind_rows(deaths2005, deaths2006, deaths2007, deaths2008, deaths2009, deaths2010,
-                        deaths2011, deaths2012, deaths2013, deaths2014, deaths2015, deaths2016,
-                        deaths2017, deaths2018) %>% 
-  select(year, everything()) %>% 
-  group_by(IMD, Sex, year) %>% 
-  summarise(across(`Week 1`:`Week 53`, sum)) %>% 
-  ungroup() %>% 
-  gather(week, deaths, `Week 1`:`Week 53`) %>% 
-  filter(!(week=="Week 53" & is.na(deaths)))
-
-deaths0518$week <- as.numeric(substr(deaths0518$week,6,7))
+popwt <- data.frame(Age=c("Under 1 year", "01-14", "15-44", "45-64", "65-74", "75-84", "85+"), 
+                    wt=c(0.01, 0.04+0.055+0.055, 0.055+0.06+0.06+0.065+0.07+0.07,
+                             0.07+0.07+0.065+0.06, 0.055+0.05, 0.04+0.025,
+                             0.015+0.008+0.002))
 
 #Bring in populations
 #2005-17 data from https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/adhocs/009316populationsbysexsingleyearofageandindexofmultipledeprivationimdengland2001to2017
@@ -65,9 +57,18 @@ temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
 engpop0117 <- read_excel(temp, sheet="Table 1", range="A14:E30953", col_names=FALSE)
 colnames(engpop0117) <- c("year", "Sex", "Age", "IMD", "exposure")
 
+engpop0117$Age <- case_when(
+  engpop0117$Age=="0" ~ "Under 1 year",
+  as.numeric(engpop0117$Age)<15 ~ "01-14",
+  as.numeric(engpop0117$Age)<45 ~ "15-44",
+  as.numeric(engpop0117$Age)<65 ~ "45-64",
+  as.numeric(engpop0117$Age)<75 ~ "65-74",
+  as.numeric(engpop0117$Age)<85 ~ "75-84",
+  TRUE~ "85+")
+
 #collapse ages
 engpop0117 <- engpop0117 %>% 
-  group_by(year, Sex, IMD) %>% 
+  group_by(year, Sex, IMD, Age) %>% 
   summarise(exposure=sum(exposure)) %>% 
   ungroup()
 
@@ -86,13 +87,48 @@ engpop18 <- bind_rows(engpop18.m, engpop18.f)
 engpop18 <- gather(engpop18, Age, exposure, c(2:92))
 colnames(engpop18) <- c("IMD", "Sex", "Age", "exposure")
 
+engpop18$Age <- as.numeric(substr(engpop18$Age,4,5))-2
+
+engpop18$Age <- case_when(
+  engpop18$Age==0 ~ "Under 1 year",
+  engpop18$Age<15 ~ "01-14",
+  engpop18$Age<45 ~ "15-44",
+  engpop18$Age<65 ~ "45-64",
+  engpop18$Age<75 ~ "65-74",
+  engpop18$Age<85 ~ "75-84",
+  TRUE~ "85+")
+
 #Collapse ages and merge into 01-17 data
 engpop <- engpop18 %>% 
-  group_by(Sex, IMD) %>% 
+  group_by(Sex, IMD, Age) %>% 
   summarise(exposure=sum(exposure)) %>% 
   ungroup() %>% 
   mutate(year=2018) %>% 
   bind_rows(engpop0117)
+
+#Merge and collapse age groups
+deaths0518 <- bind_rows(deaths2005, deaths2006, deaths2007, deaths2008, deaths2009, deaths2010,
+                        deaths2011, deaths2012, deaths2013, deaths2014, deaths2015, deaths2016,
+                        deaths2017, deaths2018) %>% 
+  select(year, everything()) %>% 
+  gather(week, deaths, `Week 1`:`Week 53`) %>%   
+  merge(popwt) %>% 
+  merge(engpop) %>% 
+  mutate(mortrate=deaths*100000/exposure, wtrate=mortrate*wt) %>% 
+  group_by(IMD, Sex, year, week) %>% 
+  summarise(deaths=sum(deaths, na.rm=TRUE), ASMR=sum(wtrate, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  filter(!(week=="Week 53" & !year %in% c(2009, 2015)))
+
+
+deaths0518$week <- as.numeric(substr(deaths0518$week,6,7))
+
+#Collapse populations over age groups
+
+engpop <- engpop %>% 
+  group_by(Sex, IMD, year) %>% 
+  summarise(exposure=sum(exposure)) %>% 
+  ungroup()
 
 engpop$time <- case_when(
   engpop$year==2001 ~ -26-2*52-53,
@@ -119,12 +155,12 @@ engpop$time <- case_when(
 #At the same time extrapolate out to mid-year 2020
 exposures.splines <- function(data){
   interpolation <- spline(data$time, data$exposure, xout=seq(from=1, to=26+52*13+2*53, 1), method="natural")
-#Set up week structure
-weeks <- c(unlist(lapply(c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26), function(x){1:x})))
-years <- c(rep(2005:2020, c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26)))
-results <- data.frame(cbind(year=years, week=weeks, exposures=interpolation$y))
-
-return(results)
+  #Set up week structure
+  weeks <- c(unlist(lapply(c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26), function(x){1:x})))
+  years <- c(rep(2005:2020, c(52,52,52,52,53,52,52,52,52,52,53,52,52,52,52,26)))
+  results <- data.frame(cbind(year=years, week=weeks, exposures=interpolation$y))
+  
+  return(results)
 }
 
 engpop.interpolated <- engpop %>% 
@@ -133,7 +169,7 @@ engpop.interpolated <- engpop %>%
   group_modify(~ exposures.splines(.x)) %>% 
   mutate(index=seq(1:n()), date=as.Date("2005-01-03")+weeks(index-1)) %>% 
   ungroup()
-  
+
 #Check interpolation visually
 ggplot()+
   geom_line(data=engpop.interpolated, aes(x=date, y=exposures))+
@@ -148,18 +184,37 @@ data <- merge(engpop.interpolated, deaths0518, all.x=TRUE)[,-c(6)]
 temp <- tempfile()
 source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fdeathsinvolvingcovid19bylocalareaanddeprivation%2f1march2020to30june2020/referencetablesworkbook2.xlsx"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
-newdata <- read_excel(temp, sheet="Table 3", range="A6:W95", col_names=FALSE)[,c(1,2,3,5,11,17,23)]
-colnames(newdata) <- c("cause", "Sex", "IMD", "March", "April",
-                      "May", "June")
+newdata <- read_excel(temp, sheet="Table 3", range="A6:X95", col_names=FALSE)[,c(1,2,3,5,6,11,12,17,18,23,24)]
+colnames(newdata) <- c("cause", "Sex", "IMD", "March" , "March_AS", "April", "April_AS",
+                       "May", "May_AS", "June", "June_AS")
 newdata$IMD <- rep(c(1:10),9)
 newdata <- subset(newdata, Sex!="Persons")
 
-newdata <- newdata %>% 
-  gather(month, deaths, c(4:7)) %>% 
+temp1 <- newdata %>% 
+  gather(month, deaths, c(4,6,8,10)) %>% 
+  select(cause, Sex, IMD, month, deaths) %>% 
   spread(cause, deaths)
 
+temp2 <- newdata %>% 
+  gather(month, ASMR, c(5,7,9,11)) %>% 
+  select(cause, Sex, IMD, month, ASMR) %>% 
+  spread(cause, ASMR)
+
+temp2$month <- case_when(
+  temp2$month=="March_AS" ~ "March",
+  temp2$month=="April_AS" ~ "April",
+  temp2$month=="May_AS" ~ "May",
+  temp2$month=="June_AS" ~ "June"
+)
+
+colnames(temp1) <- c("Sex", "IMD", "month", "deaths", "COVID_deaths", "Other_deaths")
+colnames(temp2) <- c("Sex", "IMD", "month", "ASMR", "COVID_ASMR", "Other_ASMR")
+
+
+newdata <- merge(temp1, temp2)
+
+
 newdata$Sex <- if_else(newdata$Sex=="Males", "Male", "Female")
-colnames(newdata) <- c("Sex", "IMD", "month", "deaths", "COVID_deaths", "Other_deaths")
 newdata$year <- 2020
 
 #Set up for merging
@@ -171,6 +226,12 @@ data$month <- case_when(
 )
 
 data <- merge(data, newdata, by=c("Sex", "IMD", "year", "month"), all.x=TRUE)
+
+#Converte ASMRs to Age-Standardised deaths
+data$ASdeaths.x <- data$ASMR.x*data$exposures/100000
+data$ASdeaths.y <- data$ASMR.y*data$exposures/100000
+data$ASCOVID_deaths <- data$COVID_ASMR*data$exposures/100000
+data$ASOther_deaths <- data$Other_ASMR*data$exposures/100000
 
 #Adjust 2020 deaths to weekly estimates - assume within-month distribution of deaths follows
 #the same patterns as the distribution of deaths in the overall population in England
@@ -200,12 +261,16 @@ data <- merge(data, alldeaths[,c(11,12,15)], all.x=TRUE)
 
 #Apportion 2020 deaths within month
 data$deaths.y <- data$deaths.y*data$prop
+data$ASdeaths.y <- data$ASdeaths.y*data$prop
 data$COVID_deaths <- data$COVID_deaths*data$prop
 data$Other_deaths <- data$Other_deaths*data$prop
+data$ASCOVID_deaths <- data$ASCOVID_deaths*data$prop
+data$ASOther_deaths <- data$ASOther_deaths*data$prop
 
 data$deaths <- coalesce(data$deaths.x, data$deaths.y)
+data$ASdeaths <- coalesce(data$ASdeaths.x, data$ASdeaths.y)
 
-data <- data[,-c(5,8,9)]
+data <- data[,-c(5,8,9,10,13,14,15,16,17,20)]
 
 write.csv(data, "IMDDataForJM.csv")
 
@@ -219,6 +284,20 @@ data %>%
                            labels=c("1 (most deprived)","2","3","4","5","6","7","8","9","10 (least deprived)"))+
   scale_x_date(name="Date")+
   scale_y_continuous(name="Weekly deaths per 100,000")+
+  facet_grid(Sex~.)+
+  theme_classic()+
+  theme(strip.background=element_blank(), strip.text=element_text(face="bold", size=rel(1)))
+dev.off()
+
+tiff("Outputs/AllCauseDeathsxIMDASMR.tiff", units="in", width=12, height=8, res=500)
+data %>% 
+  mutate(ASMR=ASdeaths*100000/exposures) %>% 
+  ggplot(aes(x=date, y=ASMR, colour=as.factor(IMD)))+
+  geom_line(size=0.3)+
+  scale_colour_paletteer_d("dichromat::BluetoOrange_10", name="IMD decile", 
+                           labels=c("1 (most deprived)","2","3","4","5","6","7","8","9","10 (least deprived)"))+
+  scale_x_date(name="Date")+
+  scale_y_continuous(name="Weekly age-standardised deaths per 100,000")+
   facet_grid(Sex~.)+
   theme_classic()+
   theme(strip.background=element_blank(), strip.text=element_text(face="bold", size=rel(1)))
