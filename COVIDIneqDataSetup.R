@@ -182,21 +182,21 @@ data <- merge(engpop.interpolated, deaths0518, all.x=TRUE)[,-c(6)]
 
 #Bring in 2020 deaths
 temp <- tempfile()
-source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fdeathsinvolvingcovid19bylocalareaanddeprivation%2f1march2020to30june2020/referencetablesworkbook2.xlsx"
+source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fdeathsinvolvingcovid19bylocalareaanddeprivation%2f1marchand31july2020/referencetables1.xlsx"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
-newdata <- read_excel(temp, sheet="Table 3", range="A6:X95", col_names=FALSE)[,c(1,2,3,5,6,11,12,17,18,23,24)]
+newdata <- read_excel(temp, sheet="Table 3", range="A6:AD95", col_names=FALSE)[,c(1,2,3,5,6,11,12,17,18,23,24,29,30)]
 colnames(newdata) <- c("cause", "Sex", "IMD", "March" , "March_AS", "April", "April_AS",
-                       "May", "May_AS", "June", "June_AS")
+                       "May", "May_AS", "June", "June_AS", "July", "July_AS")
 newdata$IMD <- rep(c(1:10),9)
 newdata <- subset(newdata, Sex!="Persons")
 
 temp1 <- newdata %>% 
-  gather(month, deaths, c(4,6,8,10)) %>% 
+  gather(month, deaths, c(4,6,8,10,12)) %>% 
   select(cause, Sex, IMD, month, deaths) %>% 
   spread(cause, deaths)
 
 temp2 <- newdata %>% 
-  gather(month, ASMR, c(5,7,9,11)) %>% 
+  gather(month, ASMR, c(5,7,9,11,13)) %>% 
   select(cause, Sex, IMD, month, ASMR) %>% 
   spread(cause, ASMR)
 
@@ -204,7 +204,8 @@ temp2$month <- case_when(
   temp2$month=="March_AS" ~ "March",
   temp2$month=="April_AS" ~ "April",
   temp2$month=="May_AS" ~ "May",
-  temp2$month=="June_AS" ~ "June"
+  temp2$month=="June_AS" ~ "June",
+  temp2$month=="July_AS" ~ "July"
 )
 
 colnames(temp1) <- c("Sex", "IMD", "month", "deaths", "COVID_deaths", "Other_deaths")
@@ -222,7 +223,8 @@ data$month <- case_when(
   data$year==2020 & data$week %in% c(10:13) ~ "March",
   data$year==2020 & data$week %in% c(14:18) ~ "April",
   data$year==2020 & data$week %in% c(19:22) ~ "May",
-  data$year==2020 & data$week %in% c(23:27) ~ "June"
+  data$year==2020 & data$week %in% c(23:27) ~ "June",
+  data$year==2020 & data$week %in% c(28:31) ~ "July"
 )
 
 data <- merge(data, newdata, by=c("Sex", "IMD", "year", "month"), all.x=TRUE)
@@ -238,18 +240,19 @@ data$ASOther_deaths <- data$Other_ASMR*data$exposures/100000
 
 #Bring in overall deaths
 temp <- tempfile()
-source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fweeklyprovisionalfiguresondeathsregisteredinenglandandwales%2f2020/publishedweek282020.xlsx"
+source <- "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fbirthsdeathsandmarriages%2fdeaths%2fdatasets%2fweeklyprovisionalfiguresondeathsregisteredinenglandandwales%2f2020/publishedweek332020.xlsx"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
-alldeaths <- as.data.frame(t(read_excel(temp, sheet="Weekly figures 2020", range="L87:AC95", col_names=FALSE)))
+alldeaths <- as.data.frame(t(read_excel(temp, sheet="Weekly figures 2020", range="L87:AI95", col_names=FALSE)))
 alldeaths <- alldeaths %>% 
-  mutate(totdeaths=V1+V2+V3+V4+V5+V6+V7+V8+V9, week=c(10:27), year=2020)
+  mutate(totdeaths=V1+V2+V3+V4+V5+V6+V7+V8+V9, week=c(10:33), year=2020)
 
 #calculate within-month proportions
 alldeaths$month <- case_when(
   alldeaths$week %in% c(10:13) ~ "March",
   alldeaths$week %in% c(14:18) ~ "April",
   alldeaths$week %in% c(19:22) ~ "May",
-  alldeaths$week %in% c(23:27) ~ "June"
+  alldeaths$week %in% c(23:27) ~ "June",
+  alldeaths$week %in% c(28:31) ~ "July"
 )
 
 alldeaths <- alldeaths %>% 
