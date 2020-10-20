@@ -206,6 +206,6 @@ ggplot()+
   geom_curve(aes(x=1993, y=38.5, xend=1989.3, yend=39.5), curvature=0.15, 
              arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
   labs(title="Who made the squad?",
-       subtitle="Age breakdown of England squads for every major football tournament",
+       subtitle="Age breakdown of the England men's squad for every major football tournament",
        caption="Inspired by @timriffe1 | Data from Wikipedia | Plot by @VictimOfMaths")
 dev.off()
