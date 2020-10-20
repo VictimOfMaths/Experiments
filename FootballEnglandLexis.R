@@ -4,6 +4,7 @@ library(tidyverse)
 library(xml2)
 library(rvest)
 library(lubridate)
+library(stringr)
 library(ggstream)
 
 url <- "https://en.wikipedia.org/wiki/List_of_England_national_football_team_World_Cup_and_European_Championship_squads"
@@ -140,6 +141,10 @@ data <- bind_rows(data.1950, data.1954, data.1958, data.1962, data.1966, data.19
 #Create age in years at start of tournament
 data$age <- as.numeric(difftime(data$start, data$dob, units="weeks"))/52.25
 
+#Remove captain designations
+data$Player <- gsub(" \\(c\\)", "", data$Player)
+data$Player <- gsub(" \\(captain\\)", "", data$Player)
+
 #Create unique ID (2 Dave Watsons mess things up otherwise)
 data$ID <- paste0(data$Player, data$dob)
 
@@ -163,7 +168,6 @@ ggplot()+
   geom_line(data=data, aes(x=year, y=age, group=ID, alpha=appearances^2), 
             show.legend = FALSE)+
   geom_point(data=data, aes(x=year, y=age, colour=tournament), alpha=0.5)+
-  #geom_line(data=meanage, aes(x=year, y=meanage))+
   scale_x_continuous(name="Tournament year", breaks=seq(1950, 2020, by=10))+
   scale_y_continuous(name="Age")+
   scale_colour_manual(values=c("#027DA5", "#FFC200"), name="")+
@@ -173,37 +177,35 @@ ggplot()+
            colour="Grey30", vjust=0, angle=47)+
   annotate("text", x=2008.2, y=22, label="Wayne Rooney", size=rel(2.2),
            colour="Grey30", vjust=0, angle=47)+
+  annotate("text", x=1994, y=23.1, label="Alan Shearer", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=47)+
+  annotate("text", x=1998.5, y=27.4, label="Gareth Southgate", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=47)+
+  annotate("text", x=2005.8, y=34.8, label="David James", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=47)+
   annotate("text", x=1984.5, y=34.3, label="Peter Shilton", size=rel(2.2),
            colour="Grey30", vjust=0, angle=47)+
-  annotate("text", x=2001, y=25.3, label="The 'Golden Generation'", size=rel(2.2),
+  annotate("text", x=2001.1, y=25.3, label="Man Utd's 'Golden Generation'", size=rel(2.2),
            colour="Grey30", vjust=0, angle=47)+
   annotate("text", x=1975, y=27, label="Emlyn Hughes", size=rel(2.2),
            colour="Grey30", vjust=0, angle=47)+
   annotate("text", x=1952.3, y=36.8, label="Stanley Matthews", size=rel(2.2),
            colour="Grey30", vjust=0, angle=47)+
-  annotate("text", x=1963, y=39, label="Each dot represents one player", size=rel(3),
-           colour="Grey30", vjust=0)+
+  annotate("text", x=1960.1, y=22, label="Bobby Charlton", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=47)+
+  annotate("text", x=1962, y=38, label="Each dot represents one player", size=rel(3),
+           colour="Black", vjust=0)+
   annotate("text", x=1975, y=36, label="Lines represent players picked\nfor multiple tournaments", size=rel(3),
-           colour="Grey30", vjust=0)+
+           colour="Black", vjust=0)+
   annotate("text", x=1994, y=37, label="Darker lines reflect players picked\nfor more squads over their career", size=rel(3),
-           colour="Grey30", vjust=0)+
+           colour="Black", vjust=0)+
+  geom_curve(aes(x=1959.5, y=37.6, xend=1954.4, yend=35.6), curvature=-0.15, 
+             arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
+  geom_curve(aes(x=1975, y=35.5, xend=1977, yend=30.5), curvature=0.15, 
+             arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
+  geom_curve(aes(x=1993, y=38.5, xend=1989.3, yend=39.5), curvature=0.15, 
+             arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
   labs(title="Who made the squad?",
-       subtitle="England squads for every major football tournament",
+       subtitle="Age breakdown of England squads for every major football tournament",
        caption="Inspired by @timriffe1 | Data from Wikipedia | Plot by @VictimOfMaths")
 dev.off()
-
-
-
-data %>% 
-  mutate(clubgroup=case_when(Club %in% c("Liverpool", "Tottenham Hotspur", "Everton", "Manchester United",
-                                         "Manchester City", "Arsenal", "Leeds United", "Rangers",
-                                         "Wolverhampton Wanderers", "West Bromwich Albion",
-                                         "Aston Villa", "West Ham United", "Newcastle United",
-                                         "Nottingham Forest") ~ Club,
-                             TRUE ~ "Other")) %>% 
-  group_by(year, clubgroup) %>% 
-  summarise(count=n()) %>% 
-  ungroup() %>% 
-ggplot()+
-  geom_stream(aes(x=year, y=count, fill=clubgroup), n_grid=10000)
-
