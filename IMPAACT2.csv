@@ -1,0 +1,58 @@
+Indicator,Item,Alcohol,Other
+Day of the week,Sunday,15663,65447
+Day of the week,Monday,10746,65509
+Day of the week,Tuesday,10657,63925
+Day of the week,Wednesday,10250,62203
+Day of the week,Thursday,10707,63349
+Day of the week,Friday,12526,63806
+Day of the week,Saturday,16231,65517
+Month of the year,January,7033,39054
+Month of the year,February,6586,34591
+Month of the year,March,7410,36851
+Month of the year,April,7297,36260
+Month of the year,May,7451,37463
+Month of the year,June,7622,36957
+Month of the year,July,7727,37258
+Month of the year,August,7527,37182
+Month of the year,September,7020,37329
+Month of the year,October,6889,38250
+Month of the year,November,6855,38129
+Month of the year,December,7363,40432
+Emergency code,Green,147,965
+Emergency code,Yellow,48250,242937
+Emergency code,Amber,19819,130870
+Emergency code,Red,16563,63362
+Emergency code,Purple,1976,11499
+Age group,0-24,12758,41298
+Age group,25-39,16863,48088
+Age group,40-54,19632,55252
+Age group,55-69,16834,76461
+Age group,70+,12283,176228
+Sex,Female,31612,218471
+Sex,Male,51378,199634
+SIMD-ind,1 (most deprived),7284,29836
+SIMD-ind,2,5246,25681
+SIMD-ind,3,4554,24504
+SIMD-ind,4,3919,21655
+SIMD-ind,5,3111,19167
+SIMD-ind,6,2491,17684
+SIMD-ind,7,2241,16236
+SIMD-ind,8,1699,14310
+SIMD-ind,9,1591,13094
+SIMD-ind,10 (least deprived),1306,11601
+SIMD-inc,1 (most deprived),17473,66680
+SIMD-inc,2,12568,57671
+SIMD-inc,3,11691,54405
+SIMD-inc,4,10102,49029
+SIMD-inc,5,8715,45223
+SIMD-inc,6,7355,44378
+SIMD-inc,7,5795,37472
+SIMD-inc,8,5286,34927
+SIMD-inc,9,3695,29427
+SIMD-inc,10 (least deprived),3383,26248
+Rurality,Large urban area,36107,159817
+Rurality,Other urban area,32514,164774
+Rurality,Accessible small town,6154,36425
+Rurality,Remote small town,3046,17292
+Rurality,Accessible rural area,5360,42732
+Rurality,Remote rural area,2555,22470
