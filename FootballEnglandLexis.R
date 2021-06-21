@@ -5,7 +5,7 @@ library(xml2)
 library(rvest)
 library(lubridate)
 library(stringr)
-library(ggstream)
+library(extrafont)
 
 url <- "https://en.wikipedia.org/wiki/List_of_England_national_football_team_World_Cup_and_European_Championship_squads"
 
@@ -133,10 +133,16 @@ data.2018 <- as.data.frame(html_table(temp[24])) %>%
          position=substr(Pos., 2, 3), year=2018, Player=gsub("\\*", "", Player),
          start=as.Date("2018-06-14"))
 
+data.2021 <- as.data.frame(html_table(temp[25])) %>% 
+  mutate(tournament="Euros", dob=as.Date(substr(Date.of.birth..age., 2, 11)),
+         position=substr(Pos., 2, 3), year=2021, Player=gsub("\\*", "", Player),
+         start=as.Date("2021-06-11"))
+
 data <- bind_rows(data.1950, data.1954, data.1958, data.1962, data.1966, data.1968,
                   data.1970, data.1980, data.1982, data.1986, data.1988, data.1990,
                   data.1992, data.1996, data.1998, data.2000, data.2002, data.2004,
-                  data.2006, data.2010, data.2012, data.2014, data.2016, data.2018)
+                  data.2006, data.2010, data.2012, data.2014, data.2016, data.2018,
+                  data.2021)
 
 #Create age in years at start of tournament
 data$age <- as.numeric(difftime(data$start, data$dob, units="weeks"))/52.25
@@ -163,49 +169,91 @@ apps <- data %>%
 data <- merge(data, apps, by="ID")
 
 #Lexis diagram of squads inspired by https://sites.google.com/site/timriffepersonal/
-tiff("Outputs/FootballLexis.tiff", units="in", width=14, height=5.7, res=500)
+tiff("Outputs/FootballLexis.tiff", units="in", width=14, height=5.7, res=800)
 ggplot()+  
   geom_line(data=data, aes(x=year, y=age, group=ID, alpha=appearances^2), 
             show.legend = FALSE)+
   geom_point(data=data, aes(x=year, y=age, colour=tournament), alpha=0.5)+
   scale_x_continuous(name="Tournament year", breaks=seq(1950, 2020, by=10))+
-  scale_y_continuous(name="Age")+
+  scale_y_continuous(name="Player age")+
   scale_colour_manual(values=c("#027DA5", "#FFC200"), name="")+
   theme_classic()+
-  theme(plot.title=element_text(face="bold", size=rel(2)))+
+  theme(plot.title=element_text(face="bold", size=rel(2)),
+        text=element_text(family="Lato"))+
+  annotate("text", x=2022, y=17, label="Jude\nBellingham", size=rel(2.2),
+           colour="Grey30", vjust=0, family="Lato")+
+  annotate("text", x=2020, y=30.2, label="Jordan Henderson", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=2009, y=19.5, label="Theo Walcott", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=2008.2, y=22, label="Wayne Rooney", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1994, y=23.1, label="Alan Shearer", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1998.5, y=27.4, label="Gareth Southgate", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=2005.8, y=34.8, label="David James", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1984.5, y=34.3, label="Peter Shilton", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=2001.1, y=25.3, label="Man Utd's 'Golden Generation'", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1975, y=27, label="Emlyn Hughes", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1952.3, y=36.8, label="Stanley Matthews", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1960.1, y=22, label="Bobby Charlton", size=rel(2.2),
-           colour="Grey30", vjust=0, angle=47)+
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=1962, y=38, label="Each dot represents one player", size=rel(3),
-           colour="Black", vjust=0)+
+           colour="Black", vjust=0, family="Lato")+
   annotate("text", x=1975, y=36, label="Lines represent players picked\nfor multiple tournaments", size=rel(3),
-           colour="Black", vjust=0)+
+           colour="Black", vjust=0, family="Lato")+
   annotate("text", x=1994, y=37, label="Darker lines reflect players picked\nfor more squads over their career", size=rel(3),
-           colour="Black", vjust=0)+
+           colour="Black", vjust=0, family="Lato")+
   geom_curve(aes(x=1959.5, y=37.6, xend=1954.4, yend=35.6), curvature=-0.15, 
              arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
   geom_curve(aes(x=1975, y=35.5, xend=1977, yend=30.5), curvature=0.15, 
              arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
-  geom_curve(aes(x=1993, y=38.5, xend=1989.3, yend=39.5), curvature=0.15, 
+  geom_curve(aes(x=1993, y=38.6, xend=1989.3, yend=39.5), curvature=0.15, 
              arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
+  coord_equal()+
   labs(title="Who made the squad?",
        subtitle="Age breakdown of the England men's squad for every major football tournament",
        caption="Inspired by @timriffe1 | Data from Wikipedia | Plot by @VictimOfMaths")
+
+dev.off()
+
+
+tiff("Outputs/FootballLexisMeanAge.tiff", units="in", width=14, height=5.7, res=800)
+ggplot()+
+  geom_point(data=data, aes(x=year, y=age, colour=tournament), alpha=0.5)+
+  geom_line(data=meanage, aes(x=year, y=meanage), colour="Grey50")+
+  scale_x_continuous(name="Tournament year", breaks=seq(1950, 2020, by=10))+
+  scale_y_continuous(name="Player age")+
+  scale_colour_manual(values=c("#027DA5", "#FFC200"), name="")+
+  theme_classic()+
+  theme(plot.title=element_text(face="bold", size=rel(2)),
+        text=element_text(family="Lato"))+
+  annotate("text", x=1962, y=38, label="Each dot represents one player", size=rel(3),
+           colour="Black", vjust=0, family="Lato")+
+  annotate("text", x=1975, y=30, label="The average age\nof the squad", size=rel(3),
+           colour="Black", vjust=0, family="Lato")+
+  annotate("text", x=1953, y=23, label="The 1958 World Cup squad\nwas the youngest ever", 
+           size=rel(3),
+           colour="Black", vjust=0, family="Lato")+
+  annotate("text", x=2010, y=33.5, label="The 2010 World Cup squad\nwas the oldest", 
+           size=rel(3),
+           colour="Black", vjust=0, family="Lato")+
+  annotate("text", x=2024, y=24, label="Mean age of the\ncurrent squad is\n25.3 years", 
+           size=rel(3),
+           colour="Black", vjust=0, family="Lato")+
+  geom_curve(aes(x=1959.5, y=37.6, xend=1954.4, yend=35.6), curvature=-0.15, 
+             arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
+  geom_curve(aes(x=1975, y=29.7, xend=1974, yend=28), curvature=-0.15, 
+             arrow=arrow(length=unit(0.1, "cm"), type="closed"))+
+  coord_equal()+
+  labs(title="England's Euro 2020 squad is one of the youngest ever",
+       subtitle="Age breakdown of the England men's squad for every major football tournament",
+       caption="Inspired by @timriffe1 | Data from Wikipedia | Plot by @VictimOfMaths")
+
 dev.off()
