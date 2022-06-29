@@ -6,6 +6,7 @@ library(rvest)
 library(lubridate)
 library(stringr)
 library(extrafont)
+library(ragg)
 
 theme_custom <- function() {
   theme_classic() %+replace%
@@ -27,10 +28,10 @@ temp <- tempfile()
 #21/22
 url <- "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_the_United_Kingdom"
 
-#Grab html tables of major tournament squads from Wikipedia
+#Grab html tables of UK PMs from wikipedia
 temp <- url %>% read_html %>% html_nodes("table")
 
-#Tidy them up and stick them together
+#Tidy them up 
 data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>% 
   set_names("PM", "From", "To", "Misc", "Title", "Party", "Govt", "Monarch", "Ref") %>% 
   select("PM", "From", "To", "Party") %>% 
@@ -50,12 +51,44 @@ data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>%
     TRUE ~ as.numeric(substr(Dates, 1, 4))),
     YOD=case_when(
       substr(Dates, 1, 4)=="born" ~ 2022, TRUE ~ as.numeric(substr(Dates, 6,9))),
-    YOB=as.Date(paste0(YOB, "-01-01")),
-    YOD=as.Date(paste0(YOD, "-01-01")))
+    #Assign everyone a birthday in the middle of the year, because it really doesn't matter much and
+    #I don't have time to look them all up, sorry.
+    YOB=as.Date(paste0(YOB, "-07-01")),
+    YOD=as.Date(paste0(YOD, "-07-01")),
+    AgeAtDeath=YOD-YOB, AgeWhenPM=interval(YOB, From) %>% as.numeric("years"),
+    AgeWhenNotPM=interval(YOB, To) %>% as.numeric("years"),
+    Party=gsub("\\(.*", "", Party), Name=gsub("\\[.*", "", Name),
+    Party=factor(Party, levels=c("Whig", "Tory", "Conservative", "Peelite", "Liberal", "Labour")))
 
-ggplot(data)+
-  geom_segment(aes(x=From, xend=To, y=YOB, yend=YOB))+
-  
+dummy <- data.frame(Year=seq.Date(from=as.Date("1720-07-01"), to=max(data$To), by="years"))
+
+agg_tiff("Outputs/PMLexis.tiff", units="in", width=8, height=7, res=500)
+ggplot()+
+  geom_ribbon(data=dummy %>% filter(Year<as.Date("1980-01-01")), 
+              aes(x=Year, ymin=Year, ymax=as.Date("1980-01-01")), fill="Grey80")+
+  geom_ribbon(data=dummy, 
+              aes(x=Year, ymax=Year-years(100), ymin=max(as.Date("1665-01-01"), min(Year)-years(100))), 
+              fill="Grey80")+
+  geom_line(data=dummy, aes(x=Year, y=Year-years(20)), colour="Grey90")+
+  geom_line(data=dummy, aes(x=Year, y=Year-years(40)), colour="Grey90")+
+  geom_line(data=dummy, aes(x=Year, y=Year-years(60)), colour="Grey90")+
+  geom_line(data=dummy, aes(x=Year, y=Year-years(80)), colour="Grey90")+
+  geom_segment(data=data, aes(x=From, xend=To, y=YOB, yend=YOB, colour=Party), size=2)+
+  scale_x_date()+
+  scale_y_date(name="Year of birth", limits=c(as.Date("1665-01-01"), as.Date("1980-01-01")))+
+  scale_colour_manual(values=c("#FF7F00", "Purple", "#0087DC", "#99FF99", "#ffd700", "#E4003B"))+
   theme_custom()+
-  coord_equal()
+  coord_equal()+
+  annotate("text", x=as.Date("1984-01-01"), y=as.Date("1970-01-01"), angle=45, label="Age 20",
+           colour="Grey60", family="Lato", size=rel(3))+
+  annotate("text", x=as.Date("2004-01-01"), y=as.Date("1970-01-01"), angle=45, label="Age 40",
+           colour="Grey60", family="Lato", size=rel(3))+
+  annotate("text", x=as.Date("2004-01-01"), y=as.Date("1939-01-01"), angle=45, label="Age 60",
+           colour="Grey60", family="Lato", size=rel(3))+
+  annotate("text", x=as.Date("2004-01-01"), y=as.Date("1919-01-01"), angle=45, label="Age 80",
+           colour="Grey60", family="Lato", size=rel(3))+
+  labs(title="A timeline of British Prime Ministers",
+       subtitle="Serving dates of Prime Ministers, ordered by date of birth of the encumbent",
+       caption="Date from Wikipedia\nInspired by Carl Schmertmann @CSchmert\nPlot by @VictimOfMaths")
+dev.off()
 
