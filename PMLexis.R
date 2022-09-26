@@ -28,18 +28,18 @@ temp <- tempfile()
 #21/22
 url <- "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_the_United_Kingdom"
 
-#Grab html tables of UK PMs from wikipedia
+#Grab html tables of major tournament squads from Wikipedia
 temp <- url %>% read_html %>% html_nodes("table")
 
-#Tidy them up 
+#Tidy them up and stick them together
 data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>% 
   set_names("PM", "From", "To", "Misc", "Title", "Party", "Govt", "Monarch", "Ref") %>% 
   select("PM", "From", "To", "Party") %>% 
   filter(substr(From, 1, 8)!="See also" & substr(PM, 1, 5)!="Title") %>% 
   mutate(flag=if_else(PM==lag(PM, 1), 0, 1),
          flag=if_else(is.na(flag), 1, flag),
-         To=if_else(To=="Incumbent", "28 June2022", To)) %>% 
-  filter(flag==1) %>% 
+         To=if_else(To=="Incumbent", "26 October2022", To)) %>% 
+  filter(flag==1 & PM!="Prime MinisterOffice(Lifespan)") %>% 
   mutate(From=as.Date(From, "%d %B%Y"), To=as.Date(To, "%d %B%Y")) %>% 
   separate(PM, into=c("Name", "Const"), sep="MP") %>%
   separate(Name, into=c("Name", "Dates"), sep="\\(") %>% 
@@ -53,8 +53,8 @@ data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>%
       substr(Dates, 1, 4)=="born" ~ 2022, TRUE ~ as.numeric(substr(Dates, 6,9))),
     #Assign everyone a birthday in the middle of the year, because it really doesn't matter much and
     #I don't have time to look them all up, sorry.
-    YOB=as.Date(paste0(YOB, "-07-01")),
-    YOD=as.Date(paste0(YOD, "-07-01")),
+    YOB=as.Date(paste0(YOB, "-10-01")),
+    YOD=as.Date(paste0(YOD, "-10-01")),
     AgeAtDeath=YOD-YOB, AgeWhenPM=interval(YOB, From) %>% as.numeric("years"),
     AgeWhenNotPM=interval(YOB, To) %>% as.numeric("years"),
     Party=gsub("\\(.*", "", Party), Name=gsub("\\[.*", "", Name),
@@ -91,4 +91,5 @@ ggplot()+
        subtitle="Serving dates of Prime Ministers, ordered by date of birth of the encumbent",
        caption="Date from Wikipedia\nInspired by Carl Schmertmann @CSchmert\nPlot by @VictimOfMaths")
 dev.off()
+
 
