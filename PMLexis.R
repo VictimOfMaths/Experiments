@@ -28,18 +28,19 @@ temp <- tempfile()
 #21/22
 url <- "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_the_United_Kingdom"
 
-#Grab html tables of major tournament squads from Wikipedia
+#Grab html tables of UK PMs from wikipedia
 temp <- url %>% read_html %>% html_nodes("table")
 
-#Tidy them up and stick them together
+#Tidy them up 
 data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>% 
   set_names("PM", "From", "To", "Misc", "Title", "Party", "Govt", "Monarch", "Ref") %>% 
   select("PM", "From", "To", "Party") %>% 
   filter(substr(From, 1, 8)!="See also" & substr(PM, 1, 5)!="Title") %>% 
+  filter(PM!="Prime MinisterOffice(Lifespan)") %>% 
   mutate(flag=if_else(PM==lag(PM, 1), 0, 1),
          flag=if_else(is.na(flag), 1, flag),
-         To=if_else(To=="Incumbent", "26 October2022", To)) %>% 
-  filter(flag==1 & PM!="Prime MinisterOffice(Lifespan)") %>% 
+         To=if_else(To=="Incumbent", "20 October2022", To)) %>% 
+  filter(flag==1) %>% 
   mutate(From=as.Date(From, "%d %B%Y"), To=as.Date(To, "%d %B%Y")) %>% 
   separate(PM, into=c("Name", "Const"), sep="MP") %>%
   separate(Name, into=c("Name", "Dates"), sep="\\(") %>% 
@@ -53,8 +54,8 @@ data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>%
       substr(Dates, 1, 4)=="born" ~ 2022, TRUE ~ as.numeric(substr(Dates, 6,9))),
     #Assign everyone a birthday in the middle of the year, because it really doesn't matter much and
     #I don't have time to look them all up, sorry.
-    YOB=as.Date(paste0(YOB, "-10-01")),
-    YOD=as.Date(paste0(YOD, "-10-01")),
+    YOB=as.Date(paste0(YOB, "-07-01")),
+    YOD=if_else(YOD==2022, Sys.Date(), as.Date(paste0(YOD, "-07-01"))),
     AgeAtDeath=YOD-YOB, AgeWhenPM=interval(YOB, From) %>% as.numeric("years"),
     AgeWhenNotPM=interval(YOB, To) %>% as.numeric("years"),
     Party=gsub("\\(.*", "", Party), Name=gsub("\\[.*", "", Name),
@@ -62,7 +63,7 @@ data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>%
 
 dummy <- data.frame(Year=seq.Date(from=as.Date("1720-07-01"), to=max(data$To), by="years"))
 
-agg_tiff("Outputs/PMLexis.tiff", units="in", width=8, height=7, res=500)
+agg_tiff("Outputs/PMLexis.tiff", units="in", width=8, height=7, res=600)
 ggplot()+
   geom_ribbon(data=dummy %>% filter(Year<as.Date("1980-01-01")), 
               aes(x=Year, ymin=Year, ymax=as.Date("1980-01-01")), fill="Grey80")+
@@ -91,5 +92,4 @@ ggplot()+
        subtitle="Serving dates of Prime Ministers, ordered by date of birth of the encumbent",
        caption="Date from Wikipedia\nInspired by Carl Schmertmann @CSchmert\nPlot by @VictimOfMaths")
 dev.off()
-
 
