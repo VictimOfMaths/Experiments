@@ -37,11 +37,13 @@ data <- as.data.frame(html_table(temp[2]))[-c(1), -c(1:2)] %>%
   select("PM", "From", "To", "Party") %>% 
   filter(substr(From, 1, 8)!="See also" & substr(PM, 1, 5)!="Title") %>% 
   filter(PM!="Prime MinisterOffice(Lifespan)") %>% 
+  filter(!str_detect(From, "font-style")) %>% 
   mutate(flag=if_else(PM==lag(PM, 1), 0, 1),
          flag=if_else(is.na(flag), 1, flag),
-         To=if_else(To=="Incumbent", "20 October2022", To)) %>% 
+         To=if_else(To=="Incumbent", "31 October2022", To)) %>% 
   filter(flag==1) %>% 
-  mutate(From=as.Date(From, "%d %B%Y"), To=as.Date(To, "%d %B%Y")) %>% 
+  mutate(From=as.Date(From, "%d %B%Y"), To=as.Date(To, "%d %B%Y"),
+         PM=gsub("\\(Yorks)", "", PM)) %>% 
   separate(PM, into=c("Name", "Const"), sep="MP") %>%
   separate(Name, into=c("Name", "Dates"), sep="\\(") %>% 
   separate(Const, into=c("Const", "Dates2"), sep="\\(") %>% 
@@ -90,6 +92,20 @@ ggplot()+
            colour="Grey60", family="Lato", size=rel(3))+
   labs(title="A timeline of British Prime Ministers",
        subtitle="Serving dates of Prime Ministers, ordered by date of birth of the encumbent",
-       caption="Date from Wikipedia\nInspired by Carl Schmertmann @CSchmert\nPlot by @VictimOfMaths")
+       caption="Data from Wikipedia\nInspired by Carl Schmertmann @CSchmert\nPlot by @VictimOfMaths")
 dev.off()
 
+
+agg_tiff("Outputs/PMLexisv2.tiff", units="in", width=9, height=4, res=600)
+ggplot(data %>% filter(To>as.Date("1900-01-01")), 
+       aes(x=From, xend=To, y=AgeWhenPM, yend=AgeWhenNotPM, colour=Party))+
+  geom_segment()+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Age")+
+  scale_colour_manual(values=c("#0087DC", "#ffd700", "#E4003B"))+
+  theme_custom()+
+  labs(title="Putting Liz Truss into context",
+       subtitle="Serving dates of British Prime Ministers and their ages while in office",
+       caption="Data from Wikipedia | Plot by @VictimOfMaths")
+  
+dev.off()
