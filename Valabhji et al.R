@@ -26,7 +26,7 @@ theme_custom <- function() {
           legend.title=element_text(colour="Grey20"))
 }
 
-#Download the paper itself (https://doi.org/10.1177/01410768231206033 
+#Download the supplementary material to the paper itself (https://doi.org/10.1177/01410768231206033 
 #and amend the code below to refer to wherever it is saved as appropriate)
 
 Table <- as.data.frame(pdf_data("Valabhji et al Appendix.pdf")[5])[-c(1:52, 157:160),] %>% 
