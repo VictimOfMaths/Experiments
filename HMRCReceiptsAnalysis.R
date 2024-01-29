@@ -56,9 +56,9 @@ raw.beer <- read_ods(temp, sheet="Pre_Aug23_Beer_And_Cider_Tables", range="K62:L
 data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw.beer$Beer,
                    Cider=raw.beer$Cider, Total=raw.wine$AllAlcohol) %>% 
   mutate(Index=1:nrow(.),
-    Date=as.Date("1999-04-01")%m+% months(Index-1),
-    Month=month(Date),
-    BeerProp=Beer/Total, CiderProp=Cider/Total, WineProp=Wine/Total, SpiritsProp=Spirits/Total)
+         Date=as.Date("1999-04-01")%m+% months(Index-1),
+         Month=month(Date),
+         BeerProp=Beer/Total, CiderProp=Cider/Total, WineProp=Wine/Total, SpiritsProp=Spirits/Total)
 
 #Bring in RPI data
 temp <- tempfile()
@@ -658,7 +658,8 @@ ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)),
        aes(x=Date))+
   geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2023-12-31"), ymin=300, ymax=2200, fill="grey95", colour="grey95")+
   geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
-  #geom_ribbon(data=. %>% filter(Metric=="Expected"), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
+  geom_ribbon(data=. %>% filter(Metric=="Expected") %>% 
+                spread(Quintile, Value), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
   geom_line(data=. %>% filter(Metric=="Expected" & Quintile=="Q500"), aes(y=Value),colour="red")+
   scale_x_date(name="")+
   scale_y_continuous(name="Total monthly duty receipts (£m)")+
@@ -706,12 +707,30 @@ CumDev2 <- GetExcessByCause(
   mutate(Beverage=gsub("Prop", "", Beverage))
 
 ggplot(CumDev2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
-         filter(Date>=as.Date("2020-01-01") & Quintile=="Q500"),
-       aes(x=Date, y=Value, colour=Beverage))+
+         filter(Date>=as.Date("2020-01-01")),
+       aes(x=Date, colour=Beverage))+
   geom_hline(yintercept=0, colour="grey30")+
-  #geom_ribbon(aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
-  geom_line()+
+  geom_ribbon(data=. %>%  spread(Quintile, Value), 
+              aes(ymin=Q100, ymax=Q900, fill=Beverage), alpha=0.3, colour="transparent")+
+  geom_line(data=. %>% filter(Quintile=="Q500"), aes(y=Value))+
   scale_x_date(name="")+
   scale_y_continuous(name="Cmulative difference between observed\nand expected duty receipts (£m)")+
   scale_colour_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
   theme_custom()
+
+agg_png("Outputs/DiagnosisPlot1.png", units="in", width=10, height=5, res=800)
+ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date<=as.Date("2019-12-30")), 
+       aes(x=Date))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected") %>% 
+                spread(Quintile, Value), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected" & Quintile=="Q500"), aes(y=Value),colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)", limits=c(0,NA))+
+  facet_wrap(~Beverage, scales="free_y")+
+  theme_custom()
+dev.off()
+
