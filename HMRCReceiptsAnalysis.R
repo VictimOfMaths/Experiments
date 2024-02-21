@@ -204,6 +204,10 @@ XCOD <- function (
     family = 'poisson'
   )
   
+  #Additional line to extract fit statistics of GAM model
+  #gam.check(deathsTotal_fit)
+  #plot(deathsTotal_fit,pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+  
   # predict mean expectected total deaths over time
   # design matrix
   deathsTotal_Xprd <-
@@ -512,8 +516,9 @@ GetExcessByCause <- function (
 }
 ################################################################
 
-Model <- XCOD(df=finaldata %>% dplyr::select("Date", "Index", "Month", "BeerProp", "CiderProp", "SpiritsProp", "WineProp", "Total") %>% 
-                mutate(cv_flag=if_else(.$Date<as.Date("2019-12-01"), "training", "test")),
+Model <- XCOD(df=finaldata %>% dplyr::select("Date", "Index", "Month", "BeerProp", "CiderProp", "SpiritsProp", "WineProp", "Total") %>%
+                filter(Date>=as.Date("2010-01-01")) %>% 
+                mutate(cv_flag=if_else(Date<as.Date("2019-12-01"), "training", "test")),
               formula_total = "origin_time + as.factor(seasonal_time)",
               formula_prop_dense = "origin_time + as.factor(seasonal_time)",
               formula_prop_sparse="1",
@@ -584,6 +589,20 @@ ggplot(ObsvsExp %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)),
   scale_y_continuous(name="Total monthly duty receipts (£m)")+
   theme_custom()
 
+agg_png("Outputs/HMTReceiptsDiagPlot1.png", units="in", width=8, height=5, res=800)
+ggplot(ObsvsExp %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date<=as.Date("2020-01-01")), 
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_point(data=. %>% filter(Metric=="Observed"), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected"), aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected"), colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)\nJanuary 2024 prices",
+                     limits=c(0,NA))+
+  theme_custom()
+dev.off()
+
 # Monthly deviation from expected
 MonthDev <- GetExcessByCause(
   xcod_out = total,
@@ -596,6 +615,20 @@ MonthDev <- GetExcessByCause(
   origin_time_start_of_cumulation = 250
 )
 
+agg_png("Outputs/RCGPFig1.png", units="in", width=11, height=5, res=800)
+ggplot(MonthDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2020-01-01") & Date<as.Date("2022-01-01")),
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(fill="royalblue")+
+  geom_errorbar(aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), width=0.25, alpha=0.6)+
+  scale_x_date(name="", labels=c("","Jan '20", "July '20", "Jan '21", "July '21", "Jan '22", ""))+
+  scale_y_continuous(name="Variation from expected duty receipts (£m)")+
+  theme_custom()+
+  labs(caption="Data from HMRC | Analysis by Colin Angus")
+dev.off()
+
+agg_png("Outputs/RCGPFig2.png", units="in", width=11, height=5, res=800)
 ggplot(MonthDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
          filter(Date>=as.Date("2020-01-01")),
        aes(x=Date, y=Q500_ALLCAUSE))+
@@ -605,6 +638,7 @@ ggplot(MonthDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>%
   scale_x_date(name="")+
   scale_y_continuous(name="Variation from expected duty receipts (£m)")+
   theme_custom()
+dev.off()
 
 #Cumulative deviation from expected since Jan 2020
 CumDev <- GetExcessByCause(
@@ -618,6 +652,7 @@ CumDev <- GetExcessByCause(
   origin_time_start_of_cumulation = 250
 )
 
+agg_png("Outputs/HMTExcessReceiptsCumul.png", units="in", width=8, height=6, res=800)
 ggplot(CumDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
          filter(Date>=as.Date("2020-01-01")),
        aes(x=Date, y=Q500_ALLCAUSE))+
@@ -627,6 +662,7 @@ ggplot(CumDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>%
   scale_x_date(name="")+
   scale_y_continuous(name="Cumulative difference between observed\nand expected duty receipts (£m)")+
   theme_custom()
+dev.off()
 
 #Repeat by drink type
 ObsvsExp2 <- bind_rows(
@@ -691,6 +727,21 @@ ggplot(MonthDev2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>
   scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
   theme_custom()
 
+agg_png("Outputs/HMTExcessReceiptsxBev.png", units="in", width=9, height=6, res=800)
+ggplot(MonthDev2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2020-01-01")))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(data=. %>% filter(Quintile=="Q500"),
+           aes(x=Date, y=Value, fill=Beverage), position="stack", show.legend=FALSE)+
+  geom_errorbar(data=. %>% spread(Quintile, Value),
+                aes(x=Date, ymin=Q100, ymax=Q900), width=0.25, alpha=0.6)+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Variation from expected duty receipts (£m)")+
+  scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  facet_wrap(~Beverage)+
+  theme_custom()
+dev.off()
+
 #Cumulative deviation from expected since Jan 2020
 CumDev2 <- GetExcessByCause(
   xcod_out = total,
@@ -706,6 +757,7 @@ CumDev2 <- GetExcessByCause(
                names_sep="_", values_to="Value") %>% 
   mutate(Beverage=gsub("Prop", "", Beverage))
 
+agg_png("Outputs/HMTExcessCumulxBev.png", units="in", width=8, height=5, res=800)
 ggplot(CumDev2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
          filter(Date>=as.Date("2020-01-01")),
        aes(x=Date, colour=Beverage))+
@@ -718,6 +770,7 @@ ggplot(CumDev2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>%
   scale_colour_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
   scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
   theme_custom()
+dev.off()
 
 agg_png("Outputs/DiagnosisPlot1.png", units="in", width=10, height=5, res=800)
 ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
