@@ -37,19 +37,19 @@ theme_custom <- function() {
 
 #Read in data from HMRC Alcohol Bulletin https://www.gov.uk/government/statistics/alcohol-bulletin
 temp <- tempfile()
-source <- "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1181080/Alc_Tabs_Jul_23.ods"
+source <- "https://assets.publishing.service.gov.uk/media/65ddb022cf7eb10015f57f76/Alc_Tables_Jan_24.ods"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
 
 #Read in receipts data by product type
-raw.wine <- read_ods(temp, sheet="Pre_Aug23_Wine_Tables", range="J62:K356", 
+raw.wine <- read_ods(temp, sheet="Wine_(Legacy)", range="I63:J360", 
                      col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
-raw.spirits <- read_ods(temp, sheet="Pre_Aug23_Spirits_Tables", range="J61:K355", 
+raw.spirits <- read_ods(temp, sheet="Spirits_(Legacy)", range="I67:J364", 
                         col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
-raw.beer <- read_ods(temp, sheet="Pre_Aug23_Beer_And_Cider_Tables", range="K62:L356", 
+raw.beer <- read_ods(temp, sheet="Beer_and_Cider", range="J68:K365", 
                      col_names=FALSE) %>% 
   set_names("Beer", "Cider")
 
