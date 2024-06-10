@@ -143,12 +143,18 @@ data.2022 <- as.data.frame(html_table(temp[26])) %>%
          position=substr(Pos., 2, 3), year=2022, Player=gsub("\\*", "", Player),
          start=as.Date("2022-12-01"))
 
+data.2024 <- as.data.frame(html_table(temp[27])) %>% 
+  filter(!is.na(Club)) %>% 
+  mutate(tournament="Euros", dob=as.Date(substr(Date.of.birth..age., 2, 11)),
+         position=substr(Pos., 2, 3), year=2024, Player=gsub("\\*", "", Player),
+         start=as.Date("2024-06-21"),
+         `No.`=as.numeric(`No.`))
 
 data <- bind_rows(data.1950, data.1954, data.1958, data.1962, data.1966, data.1968,
                   data.1970, data.1980, data.1982, data.1986, data.1988, data.1990,
                   data.1992, data.1996, data.1998, data.2000, data.2002, data.2004,
                   data.2006, data.2010, data.2012, data.2014, data.2016, data.2018,
-                  data.2021, data.2022)
+                  data.2021, data.2022, data.2024)
 
 #Create age in years at start of tournament
 data$age <- as.numeric(difftime(data$start, data$dob, units="weeks"))/52.25
@@ -194,8 +200,8 @@ ggplot()+
            colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=as.Date("2018-10-01"), y=23.3, label="Raheem Stirling", size=rel(2.2),
            colour="Grey30", vjust=0, angle=45, family="Lato")+
-  annotate("text", x=as.Date("2023-03-01"), y=18, label="Jude\nBellingham", size=rel(2.2),
-           colour="Grey30", vjust=0, family="Lato")+
+  annotate("text", x=as.Date("2023-03-01"), y=19.1, label="Jude Bellingham", size=rel(2.2),
+           colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=as.Date("2020-04-01"), y=30.2, label="Jordan Henderson", size=rel(2.2),
            colour="Grey30", vjust=0, angle=45, family="Lato")+
   annotate("text", x=as.Date("2009-05-01"), y=19.5, label="Theo Walcott", size=rel(2.2),
@@ -257,7 +263,7 @@ ggplot()+
   annotate("text", x=2010, y=33.5, label="The 2010 World Cup squad\nwas the oldest", 
            size=rel(3),
            colour="Black", vjust=0, family="Lato")+
-  annotate("text", x=2024, y=24, label="Mean age of the\ncurrent squad is\n25.3 years", 
+  annotate("text", x=2028, y=24, label="Mean age of the\ncurrent squad is\n26.5 years", 
            size=rel(3),
            colour="Black", vjust=0, family="Lato")+
   geom_curve(aes(x=1959.5, y=37.6, xend=1954.4, yend=35.6), curvature=-0.15, 
