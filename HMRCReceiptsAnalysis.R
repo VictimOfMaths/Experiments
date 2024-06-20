@@ -13,6 +13,7 @@ library(shiny)
 library(mgcv)
 library(coda.base)
 library(MASS)
+library(RcppRoll)
 
 #Set common font for all plots
 font <- "Lato"
@@ -36,29 +37,59 @@ theme_custom <- function() {
 }
 
 #Read in data from HMRC Alcohol Bulletin https://www.gov.uk/government/statistics/alcohol-bulletin
+#Start with older data from before August 2023
 temp <- tempfile()
-source <- "https://assets.publishing.service.gov.uk/media/65ddb022cf7eb10015f57f76/Alc_Tables_Jan_24.ods"
+source <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20231228105912mp_/https://assets.publishing.service.gov.uk/media/656718e4d6ad75000d02fc7d/Alc_Tabs_Oct_23.ods"
 temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
 
 #Read in receipts data by product type
-raw.wine <- read_ods(temp, sheet="Wine_(Legacy)", range="I63:J360", 
+raw.wine <- read_ods(temp, sheet="Pre_Aug23_Wine_Tables", range="J62:K353", 
                      col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
-raw.spirits <- read_ods(temp, sheet="Spirits_(Legacy)", range="I67:J364", 
+raw.spirits <- read_ods(temp, sheet="Pre_Aug23_Spirits_Tables", range="J61:K352", 
                         col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
-raw.beer <- read_ods(temp, sheet="Beer_and_Cider", range="J68:K365", 
+raw.beer <- read_ods(temp, sheet="Pre_Aug23_Beer_And_Cider_Tables", range="K62:L353", 
                      col_names=FALSE) %>% 
   set_names("Beer", "Cider")
 
-data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw.beer$Beer,
-                   Cider=raw.beer$Cider, Total=raw.wine$AllAlcohol) %>% 
+old.data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw.beer$Beer,
+                   Cider=raw.beer$Cider, Total=raw.wine$AllAlcohol) 
+
+#Add in more recent data from the latest version of the alcohol duty bulletin
+#https://www.gov.uk/government/statistics/alcohol-bulletin
+temp <- tempfile()
+url <- "https://assets.publishing.service.gov.uk/media/664f443fb7249a4c6e9d3a7d/Alc_Tables_Apr_24.ods"
+temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
+
+raw.wine.latest <- read_ods(temp, sheet="Wine", range="H21:I29", 
+                     col_names=FALSE) %>% 
+  set_names("Wine", "AllAlcohol")
+
+raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="I20:J28", 
+                        col_names=FALSE) %>% 
+  set_names("Spirits", "AllAlcohol") 
+
+raw.beer.latest <- read_ods(temp, sheet="Beer", range="M24:M32", 
+                     col_names=FALSE) %>% 
+  set_names("Beer")
+
+raw.cider.latest <- read_ods(temp, sheet="Cider", range="H23:H31", 
+                            col_names=FALSE) %>% 
+  set_names("Cider")
+
+latest.data <- data.frame(Wine=raw.wine.latest$Wine, Spirits=raw.spirits.latest$Spirits, 
+                          Beer=raw.beer.latest$Beer, Cider=raw.cider.latest$Cider, 
+                          Total=raw.wine.latest$AllAlcohol) 
+
+data <- bind_rows(old.data, latest.data) %>% 
   mutate(Index=1:nrow(.),
          Date=as.Date("1999-04-01")%m+% months(Index-1),
          Month=month(Date),
          BeerProp=Beer/Total, CiderProp=Cider/Total, WineProp=Wine/Total, SpiritsProp=Spirits/Total)
+
 
 #Bring in RPI data
 temp <- tempfile()
@@ -75,6 +106,33 @@ RPIdata <- RPIdata %>%
 
 finaldata <- merge(data, RPIdata) %>% 
   mutate(Total=Total*inflator)
+
+#Some descriptive graphs of the data
+agg_png("Outputs/HMRCRevenueBaseline.png", units="in", height=5, width=10, res=800)
+finaldata %>% filter(Date>=as.Date("2022-01-01")) %>% 
+                       mutate(Month=month(Date), Year=year(Date)) %>% 
+ggplot(aes(x=Month, y=Total, fill=as.factor(Year)))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(position="dodge")+
+  scale_x_continuous(breaks=c(1:12), labels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+                                              "Sep", "Oct", "Nov", "Dec"))+
+  scale_y_continuous(name="Treasury receipts (£m)\n(adjusted for inflation)")+
+  scale_fill_paletteer_d("colorblindr::OkabeIto", name="")+
+  theme_custom()
+dev.off()
+
+agg_png("Outputs/HMRCRevenuexBevType.png", units="in", height=5, width=10, res=800)
+finaldata %>% gather(Bev, Receipts, c(2:5)) %>% 
+  group_by(Bev) %>% 
+  mutate(ReceiptsRoll=roll_mean(Receipts, n=12, align="right", fill=NA)) %>% 
+  ggplot(aes(x=Date, y=ReceiptsRoll, colour=Bev))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_line()+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Treasury receipts (£m)\n(rolling 12-month average adjusted for inflation)")+
+  scale_colour_manual(name="", values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"))+
+  theme_custom()
+dev.off()
 
 #Fit models to estimate expected receipts using code developed by Jonas Schoeley to
 #estimate excess mortality by cause 
@@ -579,17 +637,20 @@ ObsvsExp <- bind_rows(
     quantiles = c(0.1, 0.5, 0.9),
     cumulative = FALSE) %>% mutate(Metric="Expected"))
 
+agg_png("Outputs/HMTReceiptsDiagPlot1.png", units="in", width=8, height=5, res=800)
 ggplot(ObsvsExp %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)), 
        aes(x=Date, y=Q500_ALLCAUSE))+
-  geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2023-12-31"), ymin=300, ymax=2200, fill="grey95", colour="grey95")+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2024-06-30"), ymin=5, ymax=2200, fill="grey95", colour="grey95")+
   geom_point(data=. %>% filter(Metric=="Observed"), shape=21, colour="black", fill="transparent")+
   geom_ribbon(data=. %>% filter(Metric=="Expected"), aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
   geom_line(data=. %>% filter(Metric=="Expected"), colour="red")+
   scale_x_date(name="")+
-  scale_y_continuous(name="Total monthly duty receipts (£m)")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)", limits=c(0,NA))+
   theme_custom()
+dev.off()
 
-agg_png("Outputs/HMTReceiptsDiagPlot1.png", units="in", width=8, height=5, res=800)
+agg_png("Outputs/HMTReceiptsDiagPlot2.png", units="in", width=8, height=5, res=800)
 ggplot(ObsvsExp %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
          filter(Date<=as.Date("2020-01-01")), 
        aes(x=Date, y=Q500_ALLCAUSE))+
@@ -692,7 +753,7 @@ ObsvsExp2 <- bind_rows(
 
 ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)), 
        aes(x=Date))+
-  geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2023-12-31"), ymin=300, ymax=2200, fill="grey95", colour="grey95")+
+  geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2024-06-30"), ymin=300, ymax=2200, fill="grey95", colour="grey95")+
   geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
   geom_ribbon(data=. %>% filter(Metric=="Expected") %>% 
                 spread(Quintile, Value), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
@@ -786,4 +847,3 @@ ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>
   facet_wrap(~Beverage, scales="free_y")+
   theme_custom()
 dev.off()
-
