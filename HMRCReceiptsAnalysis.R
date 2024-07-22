@@ -56,7 +56,7 @@ raw.beer <- read_ods(temp, sheet="Pre_Aug23_Beer_And_Cider_Tables", range="K62:L
   set_names("Beer", "Cider")
 
 old.data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw.beer$Beer,
-                   Cider=raw.beer$Cider, Total=raw.wine$AllAlcohol) 
+                       Cider=raw.beer$Cider, Total=raw.wine$AllAlcohol) 
 
 #Add in more recent data from the latest version of the alcohol duty bulletin
 #https://www.gov.uk/government/statistics/alcohol-bulletin
@@ -65,19 +65,19 @@ url <- "https://assets.publishing.service.gov.uk/media/664f443fb7249a4c6e9d3a7d/
 temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
 raw.wine.latest <- read_ods(temp, sheet="Wine", range="H21:I29", 
-                     col_names=FALSE) %>% 
+                            col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
 raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="I20:J28", 
-                        col_names=FALSE) %>% 
+                               col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
 raw.beer.latest <- read_ods(temp, sheet="Beer", range="M24:M32", 
-                     col_names=FALSE) %>% 
+                            col_names=FALSE) %>% 
   set_names("Beer")
 
 raw.cider.latest <- read_ods(temp, sheet="Cider", range="H23:H31", 
-                            col_names=FALSE) %>% 
+                             col_names=FALSE) %>% 
   set_names("Cider")
 
 latest.data <- data.frame(Wine=raw.wine.latest$Wine, Spirits=raw.spirits.latest$Spirits, 
@@ -110,8 +110,8 @@ finaldata <- merge(data, RPIdata) %>%
 #Some descriptive graphs of the data
 agg_png("Outputs/HMRCRevenueBaseline.png", units="in", height=5, width=10, res=800)
 finaldata %>% filter(Date>=as.Date("2022-01-01")) %>% 
-                       mutate(Month=month(Date), Year=year(Date)) %>% 
-ggplot(aes(x=Month, y=Total, fill=as.factor(Year)))+
+  mutate(Month=month(Date), Year=year(Date)) %>% 
+  ggplot(aes(x=Month, y=Total, fill=as.factor(Year)))+
   geom_hline(yintercept=0, colour="grey30")+
   geom_col(position="dodge")+
   scale_x_continuous(breaks=c(1:12), labels=c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
@@ -132,6 +132,38 @@ finaldata %>% gather(Bev, Receipts, c(2:5)) %>%
   scale_y_continuous(name="Treasury receipts (£m)\n(rolling 12-month average adjusted for inflation)")+
   scale_colour_manual(name="", values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"))+
   theme_custom()
+dev.off()
+
+#Pull out data on relative price changes by beverage type
+url <- "https://www.ons.gov.uk/file?uri=/economy/inflationandpriceindices/datasets/consumerpriceindices/current/mm23.csv"
+temp <- tempfile()
+temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
+
+CPIdata <-read.csv(temp) %>% 
+  set_names(slice(., 1)) %>% 
+  slice_tail(., n=nrow(.)-1) %>% 
+  slice_tail(.,n=643-193) %>% 
+  #Select indices we want D7CA, D7BT, D7DI, D7DH, D7DG
+  dplyr::select(CDID, D7CA, D7BT, D7DI, D7DH, D7DG) %>% 
+  set_names("Date", "Alcohol", "Overall", "Beer", "Wine", "Spirits") %>% 
+  mutate(Date=as.Date(paste0(Date, " 1"), "%Y %b %d"))
+
+agg_png("Outputs/CPIxBevType.png", units="in", height=5, width=10, res=800)
+CPIdata %>% filter(Date>=as.Date("2010-01-01")) %>% 
+  gather(Drink, Index, c(2:6)) %>% 
+  mutate(Index=as.numeric(Index)) %>% 
+  #rebase
+  group_by(Drink) %>% 
+  mutate(Index=Index/Index[Date==min(Date)]-1) %>% 
+  ungroup() %>% 
+  filter(Drink!="Alcohol") %>% 
+  ggplot(aes(x=Date, y=Index, colour=Drink))+
+  geom_line()+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Change since January 2010", labels=label_percent(accuracy=1))+
+  scale_colour_manual(name="", values=c("#F7AA14", "black", "#0099D5", "#C70E7B"))+
+  theme_custom()
+
 dev.off()
 
 #Fit models to estimate expected receipts using code developed by Jonas Schoeley to
@@ -576,7 +608,7 @@ GetExcessByCause <- function (
 
 Model <- XCOD(df=finaldata %>% dplyr::select("Date", "Index", "Month", "BeerProp", "CiderProp", "SpiritsProp", "WineProp", "Total") %>%
                 filter(Date>=as.Date("2010-01-01")) %>% 
-                mutate(cv_flag=if_else(Date<as.Date("2019-12-01"), "training", "test")),
+                mutate(cv_flag=if_else(Date<=as.Date("2019-12-01"), "training", "test")),
               formula_total = "origin_time + as.factor(seasonal_time)",
               formula_prop_dense = "origin_time + as.factor(seasonal_time)",
               formula_prop_sparse="1",
@@ -836,6 +868,282 @@ dev.off()
 agg_png("Outputs/DiagnosisPlot1.png", units="in", width=10, height=5, res=800)
 ggplot(ObsvsExp2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
          filter(Date<=as.Date("2019-12-30")), 
+       aes(x=Date))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected") %>% 
+                spread(Quintile, Value), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected" & Quintile=="Q500"), aes(y=Value),colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)", limits=c(0,NA))+
+  facet_wrap(~Beverage, scales="free_y")+
+  theme_custom()
+dev.off()
+
+############################################
+#Sensitivity analysis where we use Jan 2018 as the intervention point instead
+
+Model2 <- XCOD(df=finaldata %>% dplyr::select("Date", "Index", "Month", "BeerProp", "CiderProp", "SpiritsProp", "WineProp", "Total") %>%
+                filter(Date>=as.Date("2010-01-01")) %>% 
+                mutate(cv_flag=if_else(Date<=as.Date("2017-12-01"), "training", "test")),
+              formula_total = "origin_time + as.factor(seasonal_time)",
+              formula_prop_dense = "origin_time + as.factor(seasonal_time)",
+              formula_prop_sparse="1",
+              cols_prop=c("BeerProp", "CiderProp", "WineProp", "SpiritsProp"),
+              col_total="Total",
+              col_origin_time = 'Index',
+              col_seasonal_time = 'Month',
+              col_cvflag = 'cv_flag',
+              nsim = 100,
+              basis = 'ilr')
+
+# Aggregate observed and expected --------------------
+
+
+Model2 <- as.data.table(Model2)
+
+strata_cols <- c("stratum", 'origin_time', 'seasonal_time', 'cv_flag')
+value_cols <-
+  c(
+    grep('XPC_|OBS_', names(Model), value = TRUE)
+  )
+
+total2 <-
+  groupingsets(
+    Model2,
+    j = lapply(.SD, sum),
+    by = strata_cols,
+    sets = list(
+      c('origin_time', 'seasonal_time', 'cv_flag')
+    ),
+    .SDcols = value_cols
+  ) %>%
+  mutate(stratum = 'Total') %>%
+  as.data.frame()
+
+
+#Visualise Total observed and modelled
+ObsvsExpSA <- bind_rows(
+  GetExcessByCause(
+    # output of XCOD function
+    xcod_out = total2,
+    # parts of interest
+    name_parts = c('ALLCAUSE'),
+    # what measure to return
+    measure = 'observed',
+    # quantiles of interest
+    quantiles = c(0.1, 0.5, 0.9),
+    cumulative = FALSE) %>% mutate(Metric="Observed"),
+  GetExcessByCause(
+    # output of XCOD function
+    xcod_out = total2,
+    # parts of interest
+    name_parts = c('ALLCAUSE'),
+    # what measure to return
+    measure = 'expected',
+    # quantiles of interest
+    quantiles = c(0.1, 0.5, 0.9),
+    cumulative = FALSE) %>% mutate(Metric="Expected"))
+
+agg_png("Outputs/HMTReceiptsDiagPlot1SA.png", units="in", width=8, height=5, res=800)
+ggplot(ObsvsExpSA %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)), 
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_rect(xmin=as.Date("2017-12-16"), xmax=as.Date("2024-06-30"), ymin=5, ymax=2200, fill="grey95", colour="grey95")+
+  geom_point(data=. %>% filter(Metric=="Observed"), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected"), aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected"), colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)", limits=c(0,NA))+
+  theme_custom()
+dev.off()
+
+agg_png("Outputs/HMTReceiptsDiagPlot2SA.png", units="in", width=8, height=5, res=800)
+ggplot(ObsvsExpSA %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date<=as.Date("2018-01-01")), 
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_point(data=. %>% filter(Metric=="Observed"), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected"), aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected"), colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)\nJanuary 2024 prices",
+                     limits=c(0,NA))+
+  theme_custom()
+dev.off()
+
+# Monthly deviation from expected
+MonthDevSA <- GetExcessByCause(
+  xcod_out = total2,
+  name_parts = c('ALLCAUSE'),
+  measure = 'absolute',
+  quantiles = c(0.1, 0.5, 0.9),
+  # cumulative measures
+  cumulative = FALSE,
+  # accumulation starts here
+  origin_time_start_of_cumulation = 226
+)
+
+agg_png("Outputs/RCGPFig1SA.png", units="in", width=11, height=5, res=800)
+ggplot(MonthDevSA %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01") & Date<as.Date("2022-01-01")),
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(fill="royalblue")+
+  geom_errorbar(aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), width=0.25, alpha=0.6)+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Deviation from expected duty receipts (£m)")+
+  theme_custom()+
+  labs(caption="Data from HMRC | Analysis by Colin Angus")
+dev.off()
+
+agg_png("Outputs/RCGPFig2SA.png", units="in", width=11, height=5, res=800)
+ggplot(MonthDevSA %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01")),
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(fill="royalblue")+
+  geom_errorbar(aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), width=0.25, alpha=0.6)+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Deviation from expected duty receipts (£m)")+
+  theme_custom()
+dev.off()
+
+#Cumulative deviation from expected since Jan 2020
+CumDevSA <- GetExcessByCause(
+  xcod_out = total2,
+  name_parts = c('ALLCAUSE'),
+  measure = 'absolute',
+  quantiles = c(0.1, 0.5, 0.9),
+  # cumulative measures
+  cumulative = TRUE,
+  # accumulation starts here
+  origin_time_start_of_cumulation = 226
+)
+
+agg_png("Outputs/HMTExcessReceiptsCumulSA.png", units="in", width=8, height=6, res=800)
+ggplot(CumDevSA %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01")),
+       aes(x=Date, y=Q500_ALLCAUSE))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_ribbon(aes(ymin=Q100_ALLCAUSE, ymax=Q900_ALLCAUSE), fill="red", alpha=0.3)+
+  geom_line(colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Cumulative difference between observed\nand expected duty receipts (£m)")+
+  theme_custom()
+dev.off()
+
+#Repeat by drink type
+ObsvsExpSA2 <- bind_rows(
+  GetExcessByCause(
+    # output of XCOD function
+    xcod_out = total2,
+    # parts of interest
+    name_parts = c('BeerProp', 'WineProp', 'CiderProp', 'SpiritsProp'),
+    # what measure to return
+    measure = 'observed',
+    # quantiles of interest
+    quantiles = c(0.1, 0.5, 0.9),
+    cumulative = FALSE) %>% mutate(Metric="Observed"),
+  GetExcessByCause(
+    # output of XCOD function
+    xcod_out = total2,
+    # parts of interest
+    name_parts = c('BeerProp', 'WineProp', 'CiderProp', 'SpiritsProp'),
+    # what measure to return
+    measure = 'expected',
+    # quantiles of interest
+    quantiles = c(0.1, 0.5, 0.9),
+    cumulative = FALSE) %>% mutate(Metric="Expected")) %>% 
+  pivot_longer(cols=c(Q100_BeerProp:Q900_SpiritsProp), names_to=c("Quintile", "Beverage"),
+               names_sep="_", values_to="Value") %>% 
+  mutate(Beverage=gsub("Prop", "", Beverage))
+
+ggplot(ObsvsExpSA2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)), 
+       aes(x=Date))+
+  geom_rect(xmin=as.Date("2019-12-16"), xmax=as.Date("2024-06-30"), ymin=300, ymax=2200, fill="grey95", colour="grey95")+
+  geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
+  geom_ribbon(data=. %>% filter(Metric=="Expected") %>% 
+                spread(Quintile, Value), aes(ymin=Q100, ymax=Q900), fill="red", alpha=0.3)+
+  geom_line(data=. %>% filter(Metric=="Expected" & Quintile=="Q500"), aes(y=Value),colour="red")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Total monthly duty receipts (£m)")+
+  facet_wrap(~Beverage, scales="free_y")+
+  theme_custom()
+
+# Monthly deviation from expected
+MonthDevSA2 <- GetExcessByCause(
+  xcod_out = total2,
+  name_parts = c('BeerProp', 'WineProp', 'CiderProp', 'SpiritsProp'),
+  measure = 'absolute',
+  quantiles = c(0.1, 0.5, 0.9),
+  # cumulative measures
+  cumulative = FALSE,
+  # accumulation starts here
+  origin_time_start_of_cumulation = 226
+)%>% 
+  pivot_longer(cols=c(Q100_BeerProp:Q900_SpiritsProp), names_to=c("Quintile", "Beverage"),
+               names_sep="_", values_to="Value") %>% 
+  mutate(Beverage=gsub("Prop", "", Beverage))
+
+ggplot(MonthDevSA2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01") & Quintile=="Q500"),
+       aes(x=Date, y=Value, fill=Beverage))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(position="stack")+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Deviation from expected duty receipts (£m)")+
+  scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  theme_custom()
+
+agg_png("Outputs/HMTExcessReceiptsxBevSA.png", units="in", width=9, height=6, res=800)
+ggplot(MonthDevSA2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01")))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_col(data=. %>% filter(Quintile=="Q500"),
+           aes(x=Date, y=Value, fill=Beverage), position="stack", show.legend=FALSE)+
+  geom_errorbar(data=. %>% spread(Quintile, Value),
+                aes(x=Date, ymin=Q100, ymax=Q900), width=0.25, alpha=0.6)+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Deviation from expected duty receipts (£m)")+
+  scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  facet_wrap(~Beverage)+
+  theme_custom()
+dev.off()
+
+#Cumulative deviation from expected since Jan 2020
+CumDevSA2 <- GetExcessByCause(
+  xcod_out = total2,
+  name_parts = c('BeerProp', 'WineProp', 'CiderProp', 'SpiritsProp'),
+  measure = 'absolute',
+  quantiles = c(0.1, 0.5, 0.9),
+  # cumulative measures
+  cumulative = TRUE,
+  # accumulation starts here
+  origin_time_start_of_cumulation = 226
+)%>% 
+  pivot_longer(cols=c(Q100_BeerProp:Q900_SpiritsProp), names_to=c("Quintile", "Beverage"),
+               names_sep="_", values_to="Value") %>% 
+  mutate(Beverage=gsub("Prop", "", Beverage))
+
+agg_png("Outputs/HMTExcessCumulxBevSA.png", units="in", width=8, height=5, res=800)
+ggplot(CumDevSA2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date>=as.Date("2018-01-01")),
+       aes(x=Date, colour=Beverage))+
+  geom_hline(yintercept=0, colour="grey30")+
+  geom_ribbon(data=. %>%  spread(Quintile, Value), 
+              aes(ymin=Q100, ymax=Q900, fill=Beverage), alpha=0.3, colour="transparent")+
+  geom_line(data=. %>% filter(Quintile=="Q500"), aes(y=Value))+
+  scale_x_date(name="")+
+  scale_y_continuous(name="Cmulative difference between observed\nand expected duty receipts (£m)")+
+  scale_colour_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  scale_fill_manual(values=c("#F7AA14", "#2CB11B", "#0099D5", "#C70E7B"), name="")+
+  theme_custom()
+dev.off()
+
+agg_png("Outputs/DiagnosisPlot1SA.png", units="in", width=10, height=5, res=800)
+ggplot(ObsvsExpSA2 %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>% 
+         filter(Date<=as.Date("2017-12-30")), 
        aes(x=Date))+
   geom_hline(yintercept=0, colour="grey30")+
   geom_point(data=. %>% filter(Metric=="Observed" & Quintile=="Q500"), aes(y=Value), shape=21, colour="black", fill="transparent")+
