@@ -61,22 +61,22 @@ old.data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw
 #Add in more recent data from the latest version of the alcohol duty bulletin
 #https://www.gov.uk/government/statistics/alcohol-bulletin
 temp <- tempfile()
-url <- "https://assets.publishing.service.gov.uk/media/664f443fb7249a4c6e9d3a7d/Alc_Tables_Apr_24.ods"
+url <- "https://assets.publishing.service.gov.uk/media/66c5f3fe95bd109d30d76666/Alc_Tables_Jul_24.ods"
 temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
-raw.wine.latest <- read_ods(temp, sheet="Wine", range="H21:I29", 
+raw.wine.latest <- read_ods(temp, sheet="Wine", range="H19:I30", 
                             col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
-raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="I20:J28", 
+raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="J19:K30", 
                                col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
-raw.beer.latest <- read_ods(temp, sheet="Beer", range="M24:M32", 
+raw.beer.latest <- read_ods(temp, sheet="Beer", range="O21:O32", 
                             col_names=FALSE) %>% 
   set_names("Beer")
 
-raw.cider.latest <- read_ods(temp, sheet="Cider", range="H23:H31", 
+raw.cider.latest <- read_ods(temp, sheet="Cider", range="J20:J31", 
                              col_names=FALSE) %>% 
   set_names("Cider")
 
@@ -96,7 +96,7 @@ temp <- tempfile()
 url <- "https://www.ons.gov.uk/generator?format=csv&uri=/economy/inflationandpriceindices/timeseries/chaw/mm23"
 temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
-RPIdata <- read.csv(temp)[-c(1:192),] 
+RPIdata <- read.csv(temp)[-c(1:194),] 
 colnames(RPIdata) <- c("Date", "index")
 
 RPIdata <- RPIdata %>% 
@@ -724,8 +724,8 @@ ggplot(MonthDev %>% mutate(Date=as.Date("1999-04-01")+months(origin_time-1)) %>%
                  yend=-200), arrow=arrow(length = unit(0.03, "npc"), type="closed"), 
              curvature=0.2, colour="grey60")+
   geom_curve(aes(x=as.Date("2020-11-10"), y=-520, xend=as.Date("2021-02-01"), 
-               yend=-310), arrow = arrow(length = unit(0.03, "npc"), type="closed"), 
-           curvature=0.3, colour="grey60")+
+                 yend=-310), arrow = arrow(length = unit(0.03, "npc"), type="closed"), 
+             curvature=0.3, colour="grey60")+
   geom_curve(aes(x=as.Date("2021-04-15"), y=415, xend=as.Date("2021-07-15"), 
                  yend=270), arrow=arrow(length = unit(0.03, "npc"), type="closed"), 
              curvature=-0.4, colour="grey60")+
