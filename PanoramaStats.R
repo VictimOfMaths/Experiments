@@ -2593,3 +2593,216 @@ ggplot(Cohorts %>% filter(Sex=="Female"),
 
 dev.off()
 
+####################################
+#Hospital admissions data
+#England
+EngHESRAW <- bind_rows(readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200203.rds") %>% 
+                         mutate(year=2002),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200304.rds") %>% 
+                         mutate(year=2003),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200405.rds") %>% 
+                         mutate(year=2004),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200506.rds") %>% 
+                         mutate(year=2005),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200607.rds") %>% 
+                         mutate(year=2006),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200708.rds") %>% 
+                         mutate(year=2007),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200809.rds") %>% 
+                         mutate(year=2008),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage200910.rds") %>% 
+                         mutate(year=2009),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201011.rds") %>% 
+                         mutate(year=2010),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201112.rds") %>% 
+                         mutate(year=2011),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201213.rds") %>% 
+                         mutate(year=2012),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201314.rds") %>% 
+                         mutate(year=2013),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201415.rds") %>% 
+                         mutate(year=2014),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201516.rds") %>% 
+                         mutate(year=2015),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201617.rds") %>% 
+                         mutate(year=2016),
+                       readRDS("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Person-specific_single-age_rates Apr21/hosp_tobalc_eng_nat_rates_singleage201718.rds") %>% 
+                         mutate(year=2017))
+
+#Download English population by sex and SIMD
+temp <- tempfile()
+url <- "https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/populationandmigration/populationestimates/adhocs/12386populationbyindexofmultipledeprivationimdengland2001to2019/popsbyimdengland20012019.xlsx"
+rawfile <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
+
+IMDpop <- read_excel(rawfile, sheet="Table", range="A4:AQ117") %>% 
+               set_names("year", "imd_quintile", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Male", sep="_"),
+                         "DUMP", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Female", sep="_")) %>% 
+  filter(!is.na(imd_quintile)) %>% 
+  select(-DUMP) %>% 
+  fill(year, .direction="down") %>% 
+  pivot_longer(cols=c("1_Male":"100_Female"), names_to=c("age", "sex"), names_sep="_",
+               values_to="pop") %>% 
+  mutate(age=as.integer(age),
+         imd_quintile=case_when(
+           imd_quintile==1 ~ "5_most_deprived",
+           imd_quintile==2 ~ "4", imd_quintile==3 ~ "3", imd_quintile==4 ~ "2",
+           imd_quintile==5 ~ "1_least_deprived"))
+
+EngHes <- EngHESRAW %>% 
+  filter(condition=="Alcoholic_liver_disease") %>% 
+  merge(IMDpop, all.x=TRUE) %>% 
+  arrange(year, sex, imd_quintile, age) %>% 
+  fill(pop, .direction="up") %>% 
+  group_by(age, year, sex) %>% 
+  summarise(admrate=weighted.mean(pssm_rate*multiplier, pop, na.rm=TRUE)*100000,
+            .groups="drop") %>% 
+  mutate(BirthYear=year-age,
+         Cohort=case_when(
+           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
+           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
+           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
+           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
+           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
+           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
+           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
+           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
+           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
+           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
+           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
+           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
+           BirthYear<=2005 ~ "2000-04"))
+     
+agg_png("Outputs/CohortAdmEng.png", units="in", width=9, height=6, res=800)
+ggplot(EngHes %>% filter(sex=="Female"), 
+       aes(x=age, y=admrate, colour=Cohort))+
+  geom_hline(yintercept=0, colour="grey20")+
+  #geom_point(shape=21, alpha=0.2)+
+  #geom_line()+
+  geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
+  scale_x_continuous(name="Age")+
+  scale_y_continuous(name="Annual admissions per 100,000\n(narrow measure)")+
+  scale_colour_manual(values=c("#33A65C", 
+                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+                               "#122e8a", "#02006b"))+
+  #facet_wrap(~sex)+
+  theme_custom()+
+  theme(axis.line.x=element_blank(), legend.position = "none")
+
+dev.off()
+
+            
+                 
+#Scotland
+ScotHESRAW <- read.csv("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Scottish data processing 2022/hosp_tobalc_scot_nat_rates_singleage_2008-2021_2023-01-03_hesr_1.1.2_smoothed.csv")
+
+#Download Scottish population by sex and SIMD
+temp <- tempfile()
+url <- "https://www.nrscotland.gov.uk/files//statistics/population-estimates/special-area-2011-dz/simd/simd-21-tab1.xlsx"
+rawfile <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
+
+SIMDpop <- bind_rows(read_excel(rawfile, sheet="2008", range="A4:CP34") %>% 
+                       mutate(year=2008),
+                     read_excel(rawfile, sheet="2009", range="A4:CP34") %>% 
+                       mutate(year=2009),
+                     read_excel(rawfile, sheet="2010", range="A4:CP34") %>% 
+                       mutate(year=2010),
+                     read_excel(rawfile, sheet="2011", range="A4:CP34") %>% 
+                       mutate(year=2011),
+                     read_excel(rawfile, sheet="2012", range="A4:CP34") %>% 
+                       mutate(year=2012),
+                     read_excel(rawfile, sheet="2013", range="A4:CP34") %>% 
+                       mutate(year=2013),
+                     read_excel(rawfile, sheet="2014", range="A4:CP34") %>% 
+                       mutate(year=2014),
+                     read_excel(rawfile, sheet="2015", range="A4:CP34") %>% 
+                       mutate(year=2015),
+                     read_excel(rawfile, sheet="2016", range="A4:CP34") %>% 
+                       mutate(year=2016),
+                     read_excel(rawfile, sheet="2017", range="A4:CP34") %>% 
+                       mutate(year=2017),
+                     read_excel(rawfile, sheet="2018", range="A4:CP34") %>% 
+                       mutate(year=2018),
+                     read_excel(rawfile, sheet="2019", range="A4:CP34") %>% 
+                       mutate(year=2019),
+                     read_excel(rawfile, sheet="2020", range="A4:CP34") %>% 
+                       mutate(year=2020),
+                     read_excel(rawfile, sheet="2021", range="A4:CP34") %>% 
+                       mutate(year=2021)) %>% 
+  set_names("Decile", "sex", "Total", as.character(c(0:89)), "90+", "year") %>% 
+  gather(age, pop, c("0":"90+")) %>% 
+  mutate(imd_quintile=case_when(
+    Decile<=2 ~ "5_most_deprived",
+    Decile<=4 ~ "4", Decile<=6 ~ "3", Decile<=8 ~ "2",
+    TRUE ~ "1_least_deprived"),
+    sex=case_when(
+      sex=="Females" ~ "Female", sex=="Males" ~ "Male", TRUE ~ sex)) %>% 
+  group_by(sex, year, age, imd_quintile) %>% 
+  summarise(pop=sum(pop), .groups="drop")
+
+ScotHes <- ScotHESRAW %>% 
+  filter(condition=="Alcoholic_liver_disease") %>% 
+  #collapse SIMD quintiles
+  merge(SIMDpop) %>% 
+  group_by(age, year, sex) %>% 
+  summarise(admrate_broad=weighted.mean(broad_spell_rate*multiplier, pop, na.rm=TRUE)*100000,
+            admrate_narrow=weighted.mean(narrow_spell_rate*multiplier, pop, na.rm=TRUE)*100000,
+            .groups="drop") %>% 
+  mutate(BirthYear=year-age,
+         Cohort=case_when(
+           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
+           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
+           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
+           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
+           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
+           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
+           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
+           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
+           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
+           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
+           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
+           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
+           BirthYear<=2005 ~ "2000-04"))
+
+agg_png("Outputs/CohortAdmScotNarrow.png", units="in", width=9, height=6, res=800)
+ggplot(ScotHes %>% filter(sex=="Female"), 
+       aes(x=age, y=admrate_narrow, colour=Cohort))+
+  geom_hline(yintercept=0, colour="grey20")+
+  #geom_point(shape=21, alpha=0.2)+
+  #geom_line()+
+  geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
+  scale_x_continuous(name="Age")+
+  scale_y_continuous(name="Annual admissions per 100,000\n(narrow measure)")+
+  scale_colour_manual(values=c("#33A65C", 
+                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+                               "#122e8a", "#02006b"))+
+  #facet_wrap(~sex)+
+  theme_custom()+
+  theme(axis.line.x=element_blank(), legend.position = "none")
+
+dev.off()
+
+agg_png("Outputs/CohortAdmScotBroad.png", units="in", width=9, height=6, res=800)
+ggplot(ScotHes %>% filter(sex=="Female"), 
+       aes(x=age, y=admrate_broad, colour=Cohort))+
+  geom_hline(yintercept=0, colour="grey20")+
+  #geom_point(shape=21, alpha=0.2)+
+  #geom_line()+
+  geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
+  scale_x_continuous(name="Age")+
+  scale_y_continuous(name="Annual admissions per 100,000\n(broad measure)")+
+  scale_colour_manual(values=c("#33A65C", 
+                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+                               "#122e8a", "#02006b"))+
+  #facet_wrap(~sex)+
+  theme_custom()+
+  theme(axis.line.x=element_blank(), legend.position = "none")
+
+dev.off()
+
+
