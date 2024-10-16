@@ -2319,24 +2319,11 @@ EngHes <- EngHESRAW %>%
   group_by(age, year, sex) %>% 
   summarise(admrate=weighted.mean(pssm_rate*multiplier, pop, na.rm=TRUE)*100000,
             .groups="drop") %>% 
-  mutate(BirthYear=year-age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"))
+  mutate(BirthYear=year-age) %>% 
+  merge(CohortDefs, all.x=TRUE) 
 
 agg_png("Outputs/CohortAdmEng.png", units="in", width=9, height=6, res=800)
-ggplot(EngHes %>% filter(sex=="Female"), 
+ggplot(EngHes %>% filter(sex=="Female" & Cohort!="1905-1914"), 
        aes(x=age, y=admrate, colour=Cohort))+
   geom_hline(yintercept=0, colour="grey20")+
   #geom_point(shape=21, alpha=0.2)+
@@ -2344,18 +2331,17 @@ ggplot(EngHes %>% filter(sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Annual admissions per 100,000\n(narrow measure)")+
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
 
 dev.off()
-
-
 
 #Scotland
 ScotHESRAW <- read.csv("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Scottish data processing 2022/hosp_tobalc_scot_nat_rates_singleage_2008-2021_2023-01-03_hesr_1.1.2_smoothed.csv")
@@ -2412,21 +2398,8 @@ ScotHes <- ScotHESRAW %>%
   summarise(admrate_broad=weighted.mean(broad_spell_rate*multiplier, pop, na.rm=TRUE)*100000,
             admrate_narrow=weighted.mean(narrow_spell_rate*multiplier, pop, na.rm=TRUE)*100000,
             .groups="drop") %>% 
-  mutate(BirthYear=year-age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"))
+  mutate(BirthYear=year-age) %>% 
+  merge(CohortDefs, all.x=TRUE)
 
 agg_png("Outputs/CohortAdmScotNarrow.png", units="in", width=9, height=6, res=800)
 ggplot(ScotHes %>% filter(sex=="Female"), 
@@ -2437,11 +2410,12 @@ ggplot(ScotHes %>% filter(sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Annual admissions per 100,000\n(narrow measure)")+
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -2457,11 +2431,12 @@ ggplot(ScotHes %>% filter(sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Annual admissions per 100,000\n(broad measure)")+
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
