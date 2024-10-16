@@ -51,6 +51,34 @@ theme_custom <- function() {
 
 options(scipen=9999999)
 
+#########
+#Define cohorts for use in all analyses
+CohortDefs <- data.frame(BirthYear=c(1880:2010)) %>% 
+  mutate(Cohort=case_when(
+    BirthYear>=1995 ~ "1995-2004", BirthYear>=1985 ~ "1985-1994",
+    BirthYear>=1975 ~ "1975-1984", BirthYear>=1965 ~ "1965-1974",
+    BirthYear>=1955 ~ "1955-1964", BirthYear>=1945 ~ "1945-1954",
+    BirthYear>=1935 ~ "1935-1944", BirthYear>=1925 ~ "1925-1934",
+    BirthYear>=1915 ~ "1915-1924", BirthYear>=1905 ~ "1905-1914"))
+
+#BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
+#BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
+#BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
+#BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
+#BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
+#BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
+#BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
+#BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
+#BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
+#BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
+#BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
+#BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
+#BirthYear<=2005 ~ "2000-04"
+
+#CohortPal <- c("#0054FF", "#3299FF", "#65CCFF", "#99EDFF", "#CCFFFF", "#FFFFCC", "#FFEE99", "#FFCC65", "#FF9932", "#FF5500")
+CohortPal <- c("#D51317FF", "#F39200FF", "#EFD500FF", "#95C11FFF", "#007B3DFF", "#31B7BCFF", "#0094CDFF", "#164194FF", "#6F286AFF", "#706F6FFF")
+
+
 #Read in GHS/GLF data pooled for Robin's paper back in't day
 olddata <- read_dta("X:/ScHARR/SARG_IARP/General/Modelling/Age Birth Cohort Analysis/Data/Cleaned GHS-GLF/GHS1978to2009_readyToRunModel.dta")
 
@@ -387,22 +415,9 @@ Datafull <- olddata %>%
   rename(wt_int="n_wt", d7unitwg="peakdailyunits", totalwu="meanweeklyunits", year="ghs_year") %>% 
   select(sex, age, wt_int, abstainerderive, d7unitwg, totalwu, year, survey) %>% 
   bind_rows(HSEfull) %>% 
-  mutate(BirthYear=year-age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"),
-         mean_adjuster=case_when(
+  mutate(BirthYear=year-age) %>% 
+  merge(CohortDefs, all.x=TRUE) %>% 
+  mutate(mean_adjuster=case_when(
            age>=16 & age<25 & sex=="Male" ~ wineadj$ratio[1],
            age>=25 & age<45 & sex=="Male" ~ wineadj$ratio[2],
            age>=45 & age<65 & sex=="Male" ~ wineadj$ratio[3],
@@ -483,226 +498,60 @@ HSE2022 <- data.frame(ageband=rep(c("16-24", "25-34", "35-44", "45-54", "55-64",
                       bingeprop=c(0.13, 0.16, 0.2, 0.17, 0.18, 0.13, 0.05, 0.15, 0.11, 0.13, 0.13, 0.14, 0.08, 0.02))
 
 #Align to cohorts
-#In 2021, people born in 2000-04 were 17-21 etc
-Cohorts21 <- data.frame(Cohort=rep(unique(Datafull$Cohort), times=2),
-                          sex=rep(c("Male", "Female"), each=length(unique(Datafull$Cohort)))) %>% 
-  mutate(absprop=case_when(
-    Cohort=="2000-04" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Male" ~ HSE2021$abstainerprop[HSE2021$sex=="Male" & HSE2021$ageband=="75+"],
-    sex=="Male" ~ NA_real_,
-    Cohort=="2000-04" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*2/5+HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Female" ~ HSE2021$abstainerprop[HSE2021$sex=="Female" & HSE2021$ageband=="75+"],
-    sex=="Female" ~ NA_real_),
-    weekmean=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*2/5+HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ HSE2021$weekmean[HSE2021$sex=="Female" & HSE2021$ageband=="75+"],
-      sex=="Female" ~ NA_real_),
-    bingeprop=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="16-24"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="25-34"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="35-44"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="45-54"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="55-64"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="65-74"]*2/5+HSE2021$weekmean[HSE2021$sex=="Male" & HSE2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ HSE2021$bingeprop[HSE2021$sex=="Male" & HSE2021$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="16-24"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="25-34"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="35-44"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="45-54"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="55-64"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="65-74"]*2/5+HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ HSE2021$bingeprop[HSE2021$sex=="Female" & HSE2021$ageband=="75+"],
-      sex=="Female" ~ NA_real_))
-                           
-Cohorts22 <- data.frame(Cohort=rep(unique(Datafull$Cohort), times=2),
-                        sex=rep(c("Male", "Female"), each=length(unique(Datafull$Cohort)))) %>% 
-  mutate(absprop=case_when(
-    Cohort=="2000-04" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Male" ~ HSE2022$abstainerprop[HSE2022$sex=="Male" & HSE2022$ageband=="75+"],
-    sex=="Male" ~ NA_real_,
-    Cohort=="2000-04" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*2/5+HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Female" ~ HSE2022$abstainerprop[HSE2022$sex=="Female" & HSE2022$ageband=="75+"],
-    sex=="Female" ~ NA_real_),
-    weekmean=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*2/5+HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ HSE2022$weekmean[HSE2022$sex=="Female" & HSE2022$ageband=="75+"],
-      sex=="Female" ~ NA_real_),
-    bingeprop=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="16-24"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="25-34"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="35-44"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="45-54"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="55-64"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="65-74"]*2/5+HSE2022$weekmean[HSE2022$sex=="Male" & HSE2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ HSE2022$bingeprop[HSE2022$sex=="Male" & HSE2022$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="16-24"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="25-34"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="35-44"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="45-54"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="55-64"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="65-74"]*2/5+HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ HSE2022$bingeprop[HSE2022$sex=="Female" & HSE2022$ageband=="75+"],
-      sex=="Female" ~ NA_real_)) 
+Cohorts21 <- data.frame(age=rep(c(16:85), times=2), sex=rep(c("Male", "Female"), each=85-16+1)) %>% 
+  merge(HSE2021 %>% mutate(age=as.numeric(substr(ageband,1,2))), all.x=TRUE) %>% 
+  group_by(sex) %>% 
+  fill(c(abstainerprop:bingeprop), .direction="down") %>% 
+  ungroup() %>% 
+  mutate(BirthYear=2021-age) %>% 
+  merge(CohortDefs, all.x=TRUE) %>% 
+  group_by(sex, Cohort) %>% 
+  summarise(across(c(abstainerprop:bingeprop), ~ mean(.x)), .groups="drop")
 
-#Cohorts2122 <- Cohorts21 %>% 
-#  mutate(age=2021-as.numeric(substr(Cohort,1,4))+3) %>% 
-#  bind_rows(Cohorts22 %>% 
-#              mutate(age=2022-as.numeric(substr(Cohort,1,4))+3))
+Cohorts22 <- data.frame(age=rep(c(16:85), times=2), sex=rep(c("Male", "Female"), each=85-16+1)) %>% 
+  merge(HSE2022 %>% mutate(age=as.numeric(substr(ageband,1,2))), all.x=TRUE) %>% 
+  group_by(sex) %>% 
+  fill(c(abstainerprop:bingeprop), .direction="down") %>% 
+  ungroup()%>% 
+  mutate(BirthYear=2022-age) %>% 
+  merge(CohortDefs, all.x=TRUE) %>% 
+  group_by(sex, Cohort) %>% 
+  summarise(across(c(abstainerprop:bingeprop), ~ mean(.x)), .groups="drop")
 
-Cohorts2122 <- Cohorts22 %>% 
-              mutate(age=2022-as.numeric(substr(Cohort,1,4)))
-
+#Bring together
 CohortsCons <- Datafull %>% 
   filter(abstainerderive==0) %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(weekmean=weighted.mean(weekmean, wt_int, na.rm=TRUE),
             peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop") %>% 
-  bind_rows(Cohorts2122)
+  bind_rows(Cohorts21, Cohorts22)
 
 CohortConsHSE <- Datafull %>% 
   filter(abstainerderive==0 & survey=="HSE") %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(weekmean=weighted.mean(weekmean, wt_int, na.rm=TRUE),
-            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop")
+            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(Cohorts21, Cohorts22)
 
 CohortBinge <- Datafull %>% 
   filter(abstainerderive==0) %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(weekmean=weighted.mean(weekmean, wt_int, na.rm=TRUE),
-            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop")
+            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(Cohorts21, Cohorts22)
 
 CohortBingeProp <- Datafull %>% 
   filter(abstainerderive==0) %>% 
   mutate(peakday=if_else(is.na(peakday), 0, peakday),
     binge=if_else(peakday>6, 1, 0)) %>% 
   group_by(sex, age, Cohort) %>% 
-  summarise(bingeprop=weighted.mean(binge, wt_int, na.rm=TRUE), .groups="drop")%>% 
-  bind_rows(Cohorts2122)
+  summarise(bingeprop=weighted.mean(binge, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(Cohorts21, Cohorts22)
 
 CohortsAbs <- Datafull %>% 
   group_by(sex, age, Cohort) %>% 
-  summarise(absprop=weighted.mean(abstainerderive, wt_int, na.rm=TRUE), .groups="drop")%>% 
-  bind_rows(Cohorts2122)
+  summarise(absprop=weighted.mean(abstainerderive, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(Cohorts21, Cohorts22)
 
 #Mean
 agg_png("Outputs/CohortMeanEng.png", units="in", width=9, height=6, res=800)
@@ -714,11 +563,12 @@ ggplot(CohortsCons %>% filter(age<80 & !is.na(weekmean) & sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Mean weekly consumption (units)")+
-  scale_colour_manual(values=c("#1BA3C6", "#2CB5C0", "#30BCAD", "#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=c(CohortPal))+
+  #scale_colour_manual(values=c("#1BA3C6", "#2CB5C0", "#30BCAD", "#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -735,10 +585,11 @@ ggplot(CohortConsHSE %>% filter(age<80 & !is.na(weekmean) & sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Maximum daily consumption\nin the past week (units)")+
-  scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[3:10])+
+  #scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -753,14 +604,14 @@ ggplot(CohortBingeProp %>% filter(age<80 & !is.na(bingeprop) & sex=="Female" & b
   #geom_line()+
   geom_textsmooth(aes(label=Cohort), method = "loess", span=0.65, se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
-  scale_x_continuous(name="Age")+
   scale_y_continuous(name="Proportion of adults who drank\n6+ units at least once in the past week", 
                      labels=label_percent(accuracy=1))+  
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=c(CohortPal)[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -779,11 +630,12 @@ ggplot(CohortsAbs %>% filter(age<80 & !is.na(absprop) & sex=="Female"),
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Proportion of adults\nwho do not drink alcohol", 
                      labels=label_percent(accuracy=1))+
-  scale_colour_manual(values=c("#1BA3C6", "#2CB5C0", "#30BCAD", "#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=c(CohortPal))+
+  #scale_colour_manual(values=c("#1BA3C6", "#2CB5C0", "#30BCAD", "#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position="none")
@@ -797,21 +649,8 @@ SHeSdata <- read.csv("X:/HAR_PR/PR/Consumption_TA/Projects/Scottish national SHe
 SDatafull <- SHeSdata %>% 
   select(age, sex, year, wt_int, weekmean, peakday, drinker_cat) %>% 
   mutate(abstainerderive=if_else(drinker_cat=="abstainer", 1, 0),
-         BirthYear=year-age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"))
+         BirthYear=year-age) %>% 
+  merge(CohortDefs, all.x=TRUE)
 
 #Trends by dataset to validate
 SDatafull %>% 
@@ -872,217 +711,53 @@ SHeS2022 <- data.frame(ageband=rep(c("16-24", "25-34", "35-44", "45-54", "55-64"
                       bingeprop=c(0.22, 0.18, 0.19, 0.22, 0.2, 0.11, 0.03, 0.18, 0.15, 0.21, 0.14, 0.13, 0.03, 0.01))
 
 #Align to cohorts
-#In 2021, people born in 2000-04 were 17-21 etc
-SCohorts21 <- data.frame(Cohort=rep(unique(SDatafull$Cohort), times=2),
-                        sex=rep(c("Male", "Female"), each=length(unique(SDatafull$Cohort)))) %>% 
-  mutate(absprop=case_when(
-    Cohort=="2000-04" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Male" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"],
-    sex=="Male" ~ NA_real_,
-    Cohort=="2000-04" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Female" ~ SHeS2021$abstainerprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"],
-    sex=="Female" ~ NA_real_),
-    weekmean=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ SHeS2021$weekmean[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"],
-      sex=="Female" ~ NA_real_),
-    bingeprop=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$weekmean[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ SHeS2021$bingeprop[SHeS2021$sex=="Male" & SHeS2021$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="16-24"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="25-34"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="35-44"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="45-54"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="55-64"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="65-74"]*2/5+SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ SHeS2021$bingeprop[SHeS2021$sex=="Female" & SHeS2021$ageband=="75+"],
-      sex=="Female" ~ NA_real_))
+SCohorts21 <- data.frame(age=rep(c(16:85), times=2), sex=rep(c("Male", "Female"), each=85-16+1)) %>% 
+  merge(SHeS2021 %>% mutate(age=as.numeric(substr(ageband,1,2))), all.x=TRUE) %>% 
+  group_by(sex) %>% 
+  fill(c(abstainerprop:bingeprop), .direction="down") %>% 
+  ungroup() %>% 
+  mutate(BirthYear=2021-age) %>% 
+  merge(CohortDefs, all.x=TRUE) %>% 
+  group_by(sex, Cohort) %>% 
+  summarise(across(c(abstainerprop:bingeprop), ~ mean(.x)), .groups="drop")
 
-SCohorts22 <- data.frame(Cohort=rep(unique(SDatafull$Cohort), times=2),
-                        sex=rep(c("Male", "Female"), each=length(unique(SDatafull$Cohort)))) %>% 
-  mutate(absprop=case_when(
-    Cohort=="2000-04" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Male" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"],
-    sex=="Male" ~ NA_real_,
-    Cohort=="2000-04" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"],
-    Cohort=="1995-99" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*3/5,
-    Cohort=="1990-94" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"],
-    Cohort=="1985-89" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*3/5,
-    Cohort=="1980-84" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"],
-    Cohort=="1975-79" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*3/5,
-    Cohort=="1970-74" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"],
-    Cohort=="1965-69" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*3/5,
-    Cohort=="1960-64" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"],
-    Cohort=="1955-59" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*3/5,
-    Cohort=="1950-54" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"],
-    Cohort=="1945-49" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"]*3/5,
-    Cohort=="1940-44" & sex=="Female" ~ SHeS2022$abstainerprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"],
-    sex=="Female" ~ NA_real_),
-    weekmean=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ SHeS2022$weekmean[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"],
-      sex=="Female" ~ NA_real_),
-    bingeprop=case_when(
-      Cohort=="2000-04" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$weekmean[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Male" ~ SHeS2022$bingeprop[SHeS2022$sex=="Male" & SHeS2022$ageband=="75+"],
-      sex=="Male" ~ NA_real_,
-      Cohort=="2000-04" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"],
-      Cohort=="1995-99" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="16-24"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*3/5,
-      Cohort=="1990-94" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"],
-      Cohort=="1985-89" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="25-34"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*3/5,
-      Cohort=="1980-84" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"],
-      Cohort=="1975-79" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="35-44"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*3/5,
-      Cohort=="1970-74" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"],
-      Cohort=="1965-69" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="45-54"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*3/5,
-      Cohort=="1960-64" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"],
-      Cohort=="1955-59" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="55-64"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*3/5,
-      Cohort=="1950-54" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"],
-      Cohort=="1945-49" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="65-74"]*2/5+SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"]*3/5,
-      Cohort=="1940-44" & sex=="Female" ~ SHeS2022$bingeprop[SHeS2022$sex=="Female" & SHeS2022$ageband=="75+"],
-      sex=="Female" ~ NA_real_)) 
+SCohorts22 <- data.frame(age=rep(c(16:85), times=2), sex=rep(c("Male", "Female"), each=85-16+1)) %>% 
+  merge(SHeS2022 %>% mutate(age=as.numeric(substr(ageband,1,2))), all.x=TRUE) %>% 
+  group_by(sex) %>% 
+  fill(c(abstainerprop:bingeprop), .direction="down") %>% 
+  ungroup()%>% 
+  mutate(BirthYear=2022-age) %>% 
+  merge(CohortDefs, all.x=TRUE) %>% 
+  group_by(sex, Cohort) %>% 
+  summarise(across(c(abstainerprop:bingeprop), ~ mean(.x)), .groups="drop")
 
-SCohorts2122 <- SCohorts21 %>% 
-  mutate(age=2021-as.numeric(substr(Cohort,1,4))+3) %>% 
-  bind_rows(SCohorts22 %>% 
-              mutate(age=2022-as.numeric(substr(Cohort,1,4))+3))
 
 SCohortsCons <- SDatafull %>% 
   filter(abstainerderive==0) %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(weekmean=weighted.mean(weekmean, wt_int, na.rm=TRUE),
             peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop") %>% 
-  bind_rows(SCohorts2122)
+  bind_rows(SCohorts21, SCohorts22)
 
 SCohortBinge <- SDatafull %>% 
   filter(abstainerderive==0) %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(weekmean=weighted.mean(weekmean, wt_int, na.rm=TRUE),
-            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop")
+            peakday=weighted.mean(peakday, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(SCohorts21, SCohorts22)
 
 SCohortBingeProp <- SDatafull %>% 
   filter(abstainerderive==0) %>% 
   mutate(peakday=if_else(is.na(peakday), 0, peakday),
          binge=if_else(peakday>6, 1, 0)) %>% 
   group_by(sex, age, Cohort) %>% 
-  summarise(bingeprop=weighted.mean(binge, wt_int, na.rm=TRUE), .groups="drop")%>% 
-  bind_rows(SCohorts21)
+  summarise(bingeprop=weighted.mean(binge, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(SCohorts21, SCohorts22)
 
 SCohortsAbs <- SDatafull %>% 
   group_by(sex, age, Cohort) %>% 
-  summarise(absprop=weighted.mean(abstainerderive, wt_int, na.rm=TRUE), .groups="drop")%>% 
-  bind_rows(SCohorts2122)
+  summarise(absprop=weighted.mean(abstainerderive, wt_int, na.rm=TRUE), .groups="drop") %>% 
+  bind_rows(SCohorts21, SCohorts22)
 
 #Mean
 agg_png("Outputs/CohortMeanScot.png", units="in", width=9, height=6, res=800)
@@ -1094,10 +769,11 @@ ggplot(SCohortsCons %>% filter(age<80 & !is.na(weekmean) & sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", span=0.6, se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Mean weekly consumption (units)")+
-  scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[3:10])+
+  #scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1114,10 +790,11 @@ ggplot(SCohortsCons %>% filter(age<80 & !is.na(weekmean) & sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Maximum daily consumption\nin the past week (units)")+
-  scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[3:10])+
+  #scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1132,13 +809,13 @@ ggplot(SCohortBingeProp %>% filter(age<80 & !is.na(bingeprop) & sex=="Female" & 
   #geom_line()+
   geom_textsmooth(aes(label=Cohort), method = "loess", span=0.65, se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
-  scale_x_continuous(name="Age")+
   scale_y_continuous(name="Proportion of adults who drank\n6+ units at least once in the past week", 
                      labels=label_percent(accuracy=1))+  
-  scale_colour_manual(values=c("#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[4:10])+
+  #scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1157,10 +834,11 @@ ggplot(SCohortsAbs %>% filter(age<80 & !is.na(absprop) & sex=="Female"),
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Proportion of adults\nwho do not drink alcohol", 
                      labels=label_percent(accuracy=1))+
-  scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[3:10])+
+  #scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_wrap(~sex)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position="none")
@@ -1177,21 +855,8 @@ SpendData <- SpendDataRaw %>%
   group_by(uniqueid, Country, sex, age, year, newweight) %>% 
   summarise(Spend=sum(amtpaid_inf)/200, ppu=weighted.mean(ppu_inf/100, alcunits, na.rm=TRUE), .groups="drop")%>% 
   mutate(BirthYear=year-age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"),
-         sex=if_else(sex==1, "Male", "Female"))
+         sex=if_else(sex==1, "Male", "Female")) %>% 
+  merge(CohortDefs, all.x=TRUE)
 
 SpendCohort <- SpendData %>% 
   group_by(age, sex, Cohort, Country) %>% 
@@ -1207,11 +872,12 @@ ggplot(SpendCohort %>% filter(age<80 & age>=16 & !is.na(meanspend) & sex=="Femal
   #geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Average weekly spend on alcohol\n(inflation adjusted)", labels=label_dollar(prefix="£"))+
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   facet_wrap(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1227,11 +893,12 @@ ggplot(SpendCohort %>% filter(age<80 & age>=16 & !is.na(ppu) & sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Average price paid per unit of alcohol\n(inflation adjusted)", labels=label_dollar(prefix="£"))+
-  scale_colour_manual(values=c("#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #    
   facet_wrap(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1248,11 +915,12 @@ CohortsCons %>% merge(SpendCohort %>% filter(Country=="England")) %>%
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Average weekly spend on alcohol\n(inflation adjusted)", labels=label_dollar(prefix="£"))+
-  scale_colour_manual(values=c("#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal)+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #    
   facet_wrap(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1268,10 +936,12 @@ SCohortsCons %>% merge(SpendCohort %>% filter(Country=="Scotland")) %>%
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Average weekly spend on alcohol\n(inflation adjusted)", labels=label_dollar(prefix="£"))+
-  scale_colour_manual(values=c("#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal)+
+  #scale_colour_manual(values=c("#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #    
   facet_wrap(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -1396,8 +1066,8 @@ ewpop.grouped <- ewpop %>%
   summarise(across(`2001`:`2022`, \(x) sum(x, na.rm = TRUE))) %>% 
   ungroup()
 
-rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "username", "password", 
-                        "font", "theme_custom", "ewalcvalidate")))
+#rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "username", "password", 
+#                        "font", "theme_custom", "ewalcvalidate")))
 
 ##########
 #Scotland#
@@ -1713,9 +1383,9 @@ scotpop.grouped <- scotpop %>%
   summarise(across(`2001`:`2023`, sum, na.rm=TRUE)) %>% 
   ungroup()
 
-rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
-                        "scotpop.grouped", "username", "password", "font", "theme_custom",
-                        "cleanedpop", "ewalcvalidate")))
+#rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
+#                        "scotpop.grouped", "username", "password", "font", "theme_custom",
+#                        "cleanedpop", "ewalcvalidate")))
 
 ##################
 #Northern Ireland#
@@ -2176,9 +1846,9 @@ nipop.grouped <- nipop %>%
   summarise(across(`2001`:`2022`, sum, na.rm=TRUE)) %>% 
   ungroup()
 
-rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
-                        "scotpop.grouped", "nidata.wide", "nipop", "nipop.grouped", "password",
-                        "username", "font", "theme_custom", "ewalcvalidate")))
+#rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
+#                        "scotpop.grouped", "nidata.wide", "nipop", "nipop.grouped", "password",
+#                        "username", "font", "theme_custom", "ewalcvalidate")))
 
 #Combine EW, Scotland & NI
 UKdata <- ewdata.wide %>% 
@@ -2368,10 +2038,10 @@ Candata <- Candata %>%
   rename("Ex"="pop") %>% 
   filter(!is.na(Cause))
 
-rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
-                        "scotpop.grouped", "nidata.wide", "nipop", "nipop.grouped", "UKdata", 
-                        "USdata", "USpop", "USpop.grouped", "Candata", "Canpop", "Canpop.grouped",
-                        "font", "theme_custom", "ewalcvalidate")))
+#rm(list=setdiff(ls(), c("ewdata.wide", "ewpop", "ewpop.grouped", "scotdata.wide", "scotpop", 
+#                        "scotpop.grouped", "nidata.wide", "nipop", "nipop.grouped", "UKdata", 
+#                        "USdata", "USpop", "USpop.grouped", "Candata", "Canpop", "Canpop.grouped",
+#                        "font", "theme_custom", "ewalcvalidate")))
 
 Raw <- USdata %>% 
   bind_rows(Candata %>% mutate(Sex=if_else(Sex==1, "Male", "Female"))) %>% 
@@ -2496,25 +2166,12 @@ Rawsmoothed <- bind_rows(mx_smoothed1D1, mx_smoothed1D2) %>%
   select(-c(pop.s, pop.ew, pop.ni, pop.us, pop.can)) %>% 
   mutate(Dx_smt1D=mx_smt1D*pop)
 
-Cohorts <- Rawsmoothed %>% filter(Cause=="Alcohol") %>% 
-  mutate(BirthYear=Year-Age,
-         Cohort=case_when(
-           BirthYear<1885 ~ "1880-84", BirthYear<1890 ~ "1885-89",
-           BirthYear<1895 ~ "1890-94", BirthYear<1900 ~ "1895-99",
-           BirthYear<1905 ~ "1900-04", BirthYear<1910 ~ "1905-09",
-           BirthYear<1915 ~ "1910-14", BirthYear<1920 ~ "1915-19",
-           BirthYear<1925 ~ "1920-24", BirthYear<1930 ~ "1925-29",
-           BirthYear<1935 ~ "1930-34", BirthYear<1940 ~ "1935-39",
-           BirthYear<1945 ~ "1940-44", BirthYear<1950 ~ "1945-49",
-           BirthYear<1955 ~ "1950-54", BirthYear<1960 ~ "1955-59",
-           BirthYear<1965 ~ "1960-64", BirthYear<1970 ~ "1965-69",
-           BirthYear<1975 ~ "1970-74", BirthYear<1980 ~ "1975-79",
-           BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
-           BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
-           BirthYear<=2005 ~ "2000-04"))
+MortCohorts <- Rawsmoothed %>% filter(Cause=="Alcohol") %>% 
+  mutate(BirthYear=Year-Age) %>% 
+  merge(CohortDefs, all.x=TRUE)
   
 agg_png("Outputs/ARLDCohortsEng.png", units="in", width=9, height=6, res=800)
-ggplot(Cohorts %>% filter(Sex=="Female" & Country=="England & Wales"), 
+ggplot(MortCohorts %>% filter(Sex=="Female" & Country=="England & Wales" & BirthYear<=2004), 
        aes(x=Age, y=mx_smt1D*100000, colour=Cohort))+
   geom_hline(yintercept=0, colour="grey20")+
   #geom_point(shape=21, alpha=0.2)+
@@ -2522,11 +2179,12 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country=="England & Wales"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="ARLD deaths per 100,000 people")+
-  scale_colour_manual(values=c("#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_grid(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -2534,7 +2192,7 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country=="England & Wales"),
 dev.off()
 
 agg_png("Outputs/ARLDCohortsScot.png", units="in", width=9, height=6, res=800)
-ggplot(Cohorts %>% filter(Sex=="Female" & Country=="Scotland"), 
+ggplot(MortCohorts %>% filter(Sex=="Female" & Country=="Scotland" & BirthYear<=2004), 
        aes(x=Age, y=mx_smt1D*100000, colour=Cohort))+
   geom_hline(yintercept=0, colour="grey20")+
   #geom_point(shape=21, alpha=0.2)+
@@ -2542,11 +2200,12 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country=="Scotland"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="ARLD deaths per 100,000 people")+
-  scale_colour_manual(values=c("#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   #facet_grid(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -2554,7 +2213,7 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country=="Scotland"),
 dev.off()
 
 agg_png("Outputs/ARLDCohortsEngScotPre2020.png", units="in", width=9, height=6, res=800)
-ggplot(Cohorts %>% filter(Sex=="Female" & Country%in% c("Scotland", "England & Wales") & Year<2020), 
+ggplot(MortCohorts %>% filter(Sex=="Female" & Country%in% c("Scotland", "England & Wales") & Year<2020 & BirthYear<=2004), 
        aes(x=Age, y=mx_smt1D*100000, colour=Cohort))+
   geom_hline(yintercept=0, colour="grey20")+
   #geom_point(shape=21, alpha=0.2)+
@@ -2562,11 +2221,12 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country%in% c("Scotland", "England & W
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="ARLD deaths per 100,000 people")+
-  scale_colour_manual(values=c("#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   facet_grid(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
@@ -2574,7 +2234,7 @@ ggplot(Cohorts %>% filter(Sex=="Female" & Country%in% c("Scotland", "England & W
 dev.off()
 
 agg_png("Outputs/ARLDCohortsAllCountries.png", units="in", width=12, height=6, res=800)
-ggplot(Cohorts %>% filter(Sex=="Female"), 
+ggplot(MortCohorts %>% filter(Sex=="Female"), 
        aes(x=Age, y=mx_smt1D*100000, colour=Cohort))+
   geom_hline(yintercept=0, colour="grey20")+
   #geom_point(shape=21, alpha=0.2)+
@@ -2582,16 +2242,19 @@ ggplot(Cohorts %>% filter(Sex=="Female"),
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="ARLD deaths per 100,000 people")+
-  scale_colour_manual(values=c("#21B087", "#33A65C", 
-                               "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
-                               "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
-                               "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
-                               "#122e8a", "#02006b"))+
+  scale_colour_manual(values=CohortPal[2:10])+
+  #scale_colour_manual(values=c("#21B087", "#33A65C", 
+  #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
+  #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
+  #                             "#CE69BE", "#A26DC2", "#7873C0", "#4F7CBA", "#2d55a4",
+  #                             "#122e8a", "#02006b"))+
   facet_grid(~Country)+
   theme_custom()+
   theme(axis.line.x=element_blank(), legend.position = "none")
 
 dev.off()
+
+
 
 ####################################
 #Hospital admissions data
@@ -2635,8 +2298,8 @@ url <- "https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/population
 rawfile <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
 IMDpop <- read_excel(rawfile, sheet="Table", range="A4:AQ117") %>% 
-               set_names("year", "imd_quintile", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Male", sep="_"),
-                         "DUMP", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Female", sep="_")) %>% 
+  set_names("year", "imd_quintile", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Male", sep="_"),
+            "DUMP", paste(c("1", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "89", "100"), "Female", sep="_")) %>% 
   filter(!is.na(imd_quintile)) %>% 
   select(-DUMP) %>% 
   fill(year, .direction="down") %>% 
@@ -2671,7 +2334,7 @@ EngHes <- EngHESRAW %>%
            BirthYear<1985 ~ "1980-84", BirthYear<1990 ~ "1985-89",
            BirthYear<1995 ~ "1990-94", BirthYear<2000 ~ "1995-99",
            BirthYear<=2005 ~ "2000-04"))
-     
+
 agg_png("Outputs/CohortAdmEng.png", units="in", width=9, height=6, res=800)
 ggplot(EngHes %>% filter(sex=="Female"), 
        aes(x=age, y=admrate, colour=Cohort))+
@@ -2692,8 +2355,8 @@ ggplot(EngHes %>% filter(sex=="Female"),
 
 dev.off()
 
-            
-                 
+
+
 #Scotland
 ScotHESRAW <- read.csv("X:/ScHARR/PR_HES_data_TA/data/Processed tobacco and alcohol related data from VM/Scottish data processing 2022/hosp_tobalc_scot_nat_rates_singleage_2008-2021_2023-01-03_hesr_1.1.2_smoothed.csv")
 
@@ -2805,4 +2468,7 @@ ggplot(ScotHes %>% filter(sex=="Female"),
 
 dev.off()
 
+#Population-level ARLD deaths for England & Scotland (by sex)
 
+#Long-term liver disease deaths vs. other causes
+#https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808/http://www.ons.gov.uk/ons/publications/re-reference-tables.html?edition=tcm%3A77-215593
