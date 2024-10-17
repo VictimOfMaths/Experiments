@@ -2446,8 +2446,138 @@ dev.off()
 #Population-level ARLD deaths for England & Scotland (by sex)
 
 #Long-term liver disease deaths vs. other causes
+#2001-2022
+#Read in data from ONS website
+#https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/adhocs/1355deathsbysexsingleyearofageunderlyingcauseicd10codeanddeprivationdecileengland2001to2022
+temp <- tempfile()
+temp2 <- tempfile()
+source <- "https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/adhocs/1355deathsbysexsingleyearofageunderlyingcauseicd10codeanddeprivationdecileengland2001to2022/deathsbyimd20012022final.zip"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+unzip(zipfile=temp, exdir=temp2)
+
+rawpersons <- read_excel(file.path(temp2, "Deaths by IMD 2001-2022 FINAL.xlsx"),
+                         sheet="1", range=cell_limits(c(6,1), c(567283, 25))) %>% 
+  mutate(Sex="Total")
+
+rawmale <- read_excel(file.path(temp2, "Deaths by IMD 2001-2022 FINAL.xlsx"),
+                      sheet="2", range=cell_limits(c(6,1), c(415178, 25))) %>% 
+  mutate(Sex="Male")
+
+rawfemale <- read_excel(file.path(temp2, "Deaths by IMD 2001-2022 FINAL.xlsx"),
+                        sheet="3", range=cell_limits(c(6,1), c(379521, 25))) %>% 
+  mutate(Sex="Female")
+
+rawdata <- bind_rows(rawpersons, rawmale, rawfemale) %>% 
+  gather(Year, Deaths, c(4:25)) %>% 
+  mutate(Year=as.numeric(Year))
+
+#Collapse to 5-year age bands and separate out causes
+working1 <- rawdata %>% 
+  mutate(Cause=case_when(
+    substr(`ICD-10 code`,1,1)== "K" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(70:76) ~ "Liver disease",
+    substr(`ICD-10 code`,1,1)== "C" | 
+      (substr(`ICD-10 code`,1,1)== "D" & 
+         as.numeric(substr(`ICD-10 code`,2,3)) %in% c(0:48)) ~ "Cancers",
+    substr(`ICD-10 code`,1,1)=="E" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(10:14) ~ "Diabetes",
+    substr(`ICD-10 code`,1,1)=="E" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(0:7, 15:88) ~ "Endocrine or metabolic",
+    substr(`ICD-10 code`,1,1)=="I" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(10:13) ~ "Circulatory",
+    substr(`ICD-10 code`,1,1)=="I" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(20:25) ~ "Ischaemic heart",
+    substr(`ICD-10 code`,1,1)=="I" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(60:69) ~ "Cerebrovascular",
+    substr(`ICD-10 code`,1,3)=="G45" ~ "Cerebrovascular",
+    substr(`ICD-10 code`,1,1)=="J" & 
+      as.numeric(substr(`ICD-10 code`,2,3)) %in% c(0:22, 30:98) ~ "Respiratory"),
+    Age5=case_when(
+      Age<1 ~ "Under 1", Age<5 ~ "1-4", Age<10 ~ "5-9", Age<15 ~ "10-14", Age<20 ~ "15-19", Age<25 ~ "20-24",
+      Age<30 ~ "25-29", Age<35 ~ "30-34", Age<40 ~ "35-39", Age<45 ~ "40-44", Age<50 ~ "45-49", Age<55 ~ "50-54",
+      Age<60 ~ "55-59", Age<65 ~ "60-64", Age<70 ~ "65-69", Age<75 ~ "70-74", Age<80 ~ "75-79", Age<85 ~ "80-84",
+      Age<90 ~ "85-89", Age>=90 ~ "90+")) %>% 
+  filter(!is.na(Cause)) %>% 
+  group_by(Year, Age5, Sex, Cause) %>% 
+  summarise(Deaths=sum(Deaths), .groups="drop") %>% 
+  spread(Age5, Deaths) %>% 
+  mutate(across(.cols=c(4:23), ~ if_else(is.na(.x), 0, .x))) %>% 
+  gather(Age5, Deaths, c(4:23))
+
+#Bring in population data
+ewpop <- readHMDweb(CNTRY="GBRTENW", "Population", key_list("mortality.org")[1,2], 
+                      key_get("mortality.org", key_list("mortality.org")[1,2]), fixup=TRUE) %>% 
+    mutate(Age=as.numeric(Age), Age=if_else(is.na(Age), 110, Age)) 
+  
+ewpop <- bind_rows(ewpop %>% filter(Year==2021) %>% 
+                       select("Year", "Age", "Male2", "Female2") %>% 
+                       mutate(Year=2022) %>% 
+                       set_names(c("Year", "Age", "Male", "Female")),
+                     ewpop %>% select(c("Year", "Age", "Male1", "Female1")) %>% 
+                       set_names(c("Year", "Age", "Male", "Female"))) %>% 
+    gather(Sex, Ex, c("Male", "Female")) %>% 
+    mutate(Age5=case_when(
+             Age<1 ~ "Under 1", Age<5 ~ "1-4", Age<10 ~ "5-9", Age<15 ~ "10-14", Age<20 ~ "15-19", Age<25 ~ "20-24",
+             Age<30 ~ "25-29", Age<35 ~ "30-34", Age<40 ~ "35-39", Age<45 ~ "40-44", Age<50 ~ "45-49", Age<55 ~ "50-54",
+             Age<60 ~ "55-59", Age<65 ~ "60-64", Age<70 ~ "65-69", Age<75 ~ "70-74", Age<80 ~ "75-79", Age<85 ~ "80-84",
+             Age<90 ~ "85-89", Age>=90 ~ "90+")) %>% 
+    group_by(Year, Sex, Age5) %>% 
+    summarise(Pop=sum(Ex), .groups="drop")
+  
+#Combine and age-standardise
+ONS0122 <- working1 %>% 
+  merge(ewpop %>% bind_rows(ewpop %>% group_by(Age5, Year) %>% 
+                              summarise(Pop=sum(Pop), .groups="drop") %>% 
+                              mutate(Sex="Total")), all.x=TRUE) %>% 
+  mutate(mx=Deaths*100000/Pop) %>% 
+  select(-c(Deaths, Pop)) %>% 
+  spread(Age5, mx) %>% 
+  mutate(ASMR=`Under 1`*0.01+`1-4`*0.04+`5-9`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85-89`*0.015+`90+`*0.01) %>% 
+  select(Year, Sex, Cause, ASMR)
+
+#Plot
+ggplot(ONS0122, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+  
+#Download older data from 20th Century Mortality Files
 #https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808/http://www.ons.gov.uk/ons/publications/re-reference-tables.html?edition=tcm%3A77-215593
 
+#1994-2000
+temp <- tempfile()
+url <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/1994-2000-icd9c.zip"
+temp <- unzip(curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb"))
+
+raw9900 <- read_excel(temp, sheet="icd9_8")
+raw9798 <- read_excel(temp, sheet="icd9_7")
+raw9496 <- read_excel(temp, sheet="icd9_6")
+
+data9400 <- bind_rows(raw9496, raw9798, raw9900) %>% 
+  mutate(ICD_9.3=as.integer(substr(ICD_9,1,3)),
+         ICD_9.4=as.integer(substr(ICD_9,4,4)),
+         year=as.integer(yr),
+         sex=if_else(sex==1, "Male", "Female"),
+         Condition=case_when(
+           ICD_9.3 %in% c(140:239) ~ "Cancers",
+           ICD_9.3 %in% c(460:519) ~ "Respiratory",
+           ICD_9.3 %in% c(410:429) ~ "Heart disease",
+           ICD_9.3 %in% c(430:438) ~ "Stroke",
+           ICD_9.3 %in% c(570:573) ~ "Liver disease",
+           ICD_9.3==250 ~ "Diabetes",
+           TRUE ~ "Other")) %>% 
+  group_by(age, sex, year, Condition) %>% 
+  summarise(Deaths=sum(ndths), .groups="drop")
+
+##################################################
 #Data already cleaned is available from mortality.org https://www.mortality.org/Country/HCDCountry?cntr=GBRTENW
 #Can't download directly from the HMD website, so have to download the pre-2001 data and save it locally
 HCODdataRaw <- read.csv("Data/GBRTENW_m_interm_idr_orig.csv")
@@ -2484,9 +2614,8 @@ ggplot(HCODdata %>% filter(sex=="Overall"), aes(x=year, y=index, colour=Cause))+
   geom_line(linewidth=1)+
   scale_x_continuous(name="")+
   scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
-                     trans="log", breaks=c(0.25, 0.5, 1, 2, 4), 
+                     breaks=c(0.25, 0.5, 1, 2, 4), limits=c(0,4.5),
                      labels=c("Quartered", "Halved", "No change", "Doubled", "Quadrupled"))+
   scale_colour_manual(values=c("#00a7c9", "#00a9e2", "#9b4494", "#b11048", "#436cab", "#ca9c54"))+
   #facet_wrap(~sex)+
   theme_custom()
-
