@@ -2447,3 +2447,46 @@ dev.off()
 
 #Long-term liver disease deaths vs. other causes
 #https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808/http://www.ons.gov.uk/ons/publications/re-reference-tables.html?edition=tcm%3A77-215593
+
+#Data already cleaned is available from mortality.org https://www.mortality.org/Country/HCDCountry?cntr=GBRTENW
+#Can't download directly from the HMD website, so have to download the pre-2001 data and save it locally
+HCODdataRaw <- read.csv("Data/GBRTENW_m_interm_idr_orig.csv")
+
+#Extract just the causes we want
+HCODdata <- HCODdataRaw %>% 
+  mutate(cause=as.numeric(cause)) %>% 
+  filter(cause %in% c(7:23, 25, 31, 33:35, 28, 43,44, 37, 39, 40, 41, 42)) %>% 
+  mutate(Cause=case_when(
+    cause %in% c(7:23) ~ "Cancers",
+    cause==25 ~ "Diabetes",
+    cause %in% c(31, 33, 34) ~ "Heart disease",
+    cause==35 ~ "Heart attacks and strokes",
+    cause %in% c(28, 43, 44) ~ "Liver disease",
+    #cause==44 ~ "Liver disease",
+    cause %in% c(37, 39, 40:42) ~ "Respiratory diseases"),
+    sex=case_when(
+      sex==1 ~ "Male", sex==2 ~ "Female", sex==3 ~ "Overall")) %>% 
+  group_by(Cause, year, sex) %>% 
+  summarise(across(c(m0:m100p), ~ sum(.x)), .groups="drop") %>% 
+  #age-standardise
+  mutate(ASMR=m0*0.01+m1*0.04+m5*0.055+m10*0.055+m15*0.055+m20*0.06+m25*0.06+m30*0.065+
+           m35*0.07+m40*0.07+m45*0.07+m50*0.07+m55*0.065+m60*0.06+m65*0.055+m70*0.05+m75*0.04+
+           m80*0.025+m85p*0.015) %>% 
+  #Heart attack deaths seem to only be recorded from 68 onwards
+  filter(year>=1970) %>% 
+  #Index to 1968
+  group_by(sex, Cause) %>% 
+  mutate(index=ASMR/ASMR[year==1970]) %>% 
+  ungroup()
+
+ggplot(HCODdata %>% filter(sex=="Overall"), aes(x=year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+                     trans="log", breaks=c(0.25, 0.5, 1, 2, 4), 
+                     labels=c("Quartered", "Halved", "No change", "Doubled", "Quadrupled"))+
+  scale_colour_manual(values=c("#00a7c9", "#00a9e2", "#9b4494", "#b11048", "#436cab", "#ca9c54"))+
+  #facet_wrap(~sex)+
+  theme_custom()
+
