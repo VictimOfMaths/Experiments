@@ -936,7 +936,7 @@ SCohortsCons %>% merge(SpendCohort %>% filter(Country=="Scotland")) %>%
   geom_textsmooth(aes(label=Cohort), method="loess", se=FALSE, size=2)+
   scale_x_continuous(name="Age")+
   scale_y_continuous(name="Average weekly spend on alcohol\n(inflation adjusted)", labels=label_dollar(prefix="£"))+
-  scale_colour_manual(values=CohortPal)+
+  scale_colour_manual(values=CohortPal[2:10])+
   #scale_colour_manual(values=c("#33A65C", 
   #                             "#57A337", "#A2B627", "#D5BB21", "#F8B620", "#F89217", 
   #                             "#F06719", "#E03426", "#F64971", "#FC719E", "#EB73B3", 
@@ -2444,6 +2444,62 @@ ggplot(ScotHes %>% filter(sex=="Female"),
 dev.off()
 
 #Population-level ARLD deaths for England & Scotland (by sex)
+#Read in Scottish data on ASDs back to 1994
+temp <- tempfile()
+source <- "https://www.nrscotland.gov.uk/files//statistics/alcohol-deaths/2023/alcohol-specific-deaths-23-all-tabs.xlsx"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+
+ScotRaw <- read_excel(temp, sheet="Table_1", range="A5:M50") %>% 
+  set_names("Year", "Deaths_Total", "Deaths_Female", "Deaths_Male", "ASMR_Total",
+            "ASMRLowerCI_Total", "ASMRUpperCI_Total", "ASMR_Female",
+            "ASMRLowerCI_Female", "ASMRUpperCI_Female", "ASMR_Male",
+            "ASMRLowerCI_Male", "ASMRUpperCI_Male") %>% 
+  pivot_longer(c(2:13), names_to=c("Metric","Sex"), names_sep="_", values_to="Value")
+
+ggplot(ScotRaw %>% filter(Metric=="ASMR" & Sex!="Total" & !is.na(Value)), 
+       aes(x=Year, y=Value, colour=Sex))+
+  geom_hline(yintercept=0, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Deaths per 100,000\n(age-standardised)")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99"))+
+  theme_custom()
+
+#Read in English data on ASDs back to 2001
+temp <- tempfile()
+source <- "https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/alcoholspecificdeathsintheuk/current/alcoholspecificdeaths2022.xlsx"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+
+EngRaw <- read_excel(temp, sheet="Table_2", range="C5:O27") %>% 
+  set_names("Year", "Deaths_Total", "ASMR_Total", "ASMRLowerCI_Total", "ASMRUpperCI_Total",
+            "Deaths_Male", "ASMR_Male", "ASMRLowerCI_Male", "ASMRUpperCI_Male", "Deaths_Female", 
+            "ASMR_Female", "ASMRLowerCI_Female", "ASMRUpperCI_Female") %>% 
+  pivot_longer(c(2:11), names_to=c("Metric","Sex"), names_sep="_", values_to="Value")
+
+ggplot(EngRaw %>% filter(Metric=="ASMR" & Sex!="Total" & !is.na(Value)), 
+       aes(x=Year, y=Value, colour=Sex))+
+  geom_hline(yintercept=0, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Deaths per 100,000\n(age-standardised)")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99"))+
+  theme_custom()
+
+#Combine
+agg_png("Outputs/ASDEngScotxSex.png", units="in", width=10, height=6, res=800)
+ScotRaw %>% mutate(Country="Scotland") %>% 
+  bind_rows(EngRaw %>% mutate(Country="England")) %>% 
+  filter(Metric=="ASMR" & Sex!="Total" & !is.na(Value)) %>% 
+  ggplot(aes(x=Year, y=Value, colour=Country))+
+  geom_hline(yintercept=0, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Deaths per 100,000\n(age-standardised)")+
+  scale_colour_manual(values=c("tomato", "royalblue"))+
+  facet_wrap(~Sex)+
+  theme_custom()
+
+dev.off()
 
 #Long-term liver disease deaths vs. other causes
 #2001-2022
@@ -2552,6 +2608,15 @@ ggplot(ONS0122, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
 #Download older data from 20th Century Mortality Files
 #https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808/http://www.ons.gov.uk/ons/publications/re-reference-tables.html?edition=tcm%3A77-215593
 
+#Populations
+temp <- tempfile()
+source <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/populations-1901-2000.xls"
+temp <- curl_download(url=source, destfile=temp, quiet=FALSE, mode="wb")
+
+ONSpop19012000 <- read_excel(temp, sheet="POPLNS") %>% 
+  set_names("Year", "Sex", "Age", "Pop") %>% 
+  mutate(Sex=if_else(Sex==1, "Male", "Female"))
+
 #1994-2000
 temp <- tempfile()
 url <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/1994-2000-icd9c.zip"
@@ -2564,19 +2629,400 @@ raw9496 <- read_excel(temp, sheet="icd9_6")
 data9400 <- bind_rows(raw9496, raw9798, raw9900) %>% 
   mutate(ICD_9.3=as.integer(substr(ICD_9,1,3)),
          ICD_9.4=as.integer(substr(ICD_9,4,4)),
-         year=as.integer(yr),
-         sex=if_else(sex==1, "Male", "Female"),
-         Condition=case_when(
+         Year=as.integer(yr),
+         Sex=if_else(sex==1, "Male", "Female"),
+         Cause=case_when(
            ICD_9.3 %in% c(140:239) ~ "Cancers",
-           ICD_9.3 %in% c(460:519) ~ "Respiratory",
-           ICD_9.3 %in% c(410:429) ~ "Heart disease",
-           ICD_9.3 %in% c(430:438) ~ "Stroke",
            ICD_9.3 %in% c(570:573) ~ "Liver disease",
            ICD_9.3==250 ~ "Diabetes",
-           TRUE ~ "Other")) %>% 
-  group_by(age, sex, year, Condition) %>% 
+           ICD_9.3 %in% c(401:404) ~ "Circulatory",
+           ICD_9.3 %in% c(410:414, 429) ~ "Ischaemic heart",
+           ICD_9.3 %in% c(430:438, 46, 348) ~ "Cerebrovascular",
+           ICD_9.3 %in% c(460:466, 477:517) ~ "Respiratory",
+           ICD_9.3 %in% c(240:246, 251:279) ~ "Endocrine or metabolic")) %>% 
+  filter(!is.na(Cause)) %>% 
+  group_by(age, Sex, Year, Cause) %>% 
   summarise(Deaths=sum(ndths), .groups="drop")
 
+ONS9400 <- data9400 %>% 
+  rename(Age="age") %>% 
+  merge(ONSpop19012000, all.x=TRUE) 
+
+ONS9400 <- ONS9400 %>%
+  bind_rows(ONS9400 %>% 
+              group_by(Age, Year, Cause) %>% 
+  summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+  mutate(Sex="Total")) %>% 
+  mutate(mx=Deaths*100000/Pop) %>% 
+  select(-c(Deaths, Pop)) %>% 
+  spread(Age, mx) %>% 
+  mutate(across(.cols=c(4:22), ~ if_else(is.na(.x), 0, .x))) %>% 
+  mutate(ASMR=`<1`*0.01+`01-04`*0.04+`05-09`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85+`*0.015) %>% 
+  select(Year, Sex, Cause, ASMR)
+
+#Plot
+ggplot(ONS9400, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+bind_rows(ONS9400, ONS0122) %>% 
+  ggplot(aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_vline(xintercept=2000.5, colour="grey60")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+#1985-1993
+temp <- tempfile()
+url <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/1985-1993-icd9b.zip"
+temp <- unzip(curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb"))
+
+raw8587 <- read_excel(temp, sheet="icd9_3")
+raw8890 <- read_excel(temp, sheet="icd9_4")
+raw9193 <- read_excel(temp, sheet="icd9_5")
+
+data8593 <- bind_rows(raw8587, raw8890, raw9193) %>% 
+  mutate(ICD_9.3=as.integer(substr(ICD_9,1,3)),
+         ICD_9.4=as.integer(substr(ICD_9,4,4)),
+         Year=as.integer(yr),
+         Sex=if_else(sex==1, "Male", "Female"),
+         Cause=case_when(
+           ICD_9.3 %in% c(140:239) ~ "Cancers",
+           ICD_9.3 %in% c(570:573) ~ "Liver disease",
+           ICD_9.3==250 ~ "Diabetes",
+           ICD_9.3 %in% c(401:404) ~ "Circulatory",
+           ICD_9.3 %in% c(410:414, 429) ~ "Ischaemic heart",
+           ICD_9.3 %in% c(430:438, 46, 348) ~ "Cerebrovascular",
+           ICD_9.3 %in% c(460:466, 477:517) ~ "Respiratory",
+           ICD_9.3 %in% c(240:246, 251:279) ~ "Endocrine or metabolic")) %>% 
+  filter(!is.na(Cause)) %>% 
+  group_by(age, Sex, Year, Cause) %>% 
+  summarise(Deaths=sum(ndths), .groups="drop")
+
+ONS8593 <- data8593 %>% 
+  rename(Age="age") %>% 
+  merge(ONSpop19012000, all.x=TRUE) 
+
+ONS8593 <- ONS8593 %>%
+  bind_rows(ONS8593 %>% 
+              group_by(Age, Year, Cause) %>% 
+              summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+              mutate(Sex="Total")) %>% 
+  mutate(mx=Deaths*100000/Pop) %>% 
+  select(-c(Deaths, Pop)) %>% 
+  spread(Age, mx) %>% 
+  mutate(across(.cols=c(4:22), ~ if_else(is.na(.x), 0, .x))) %>% 
+  mutate(ASMR=`<1`*0.01+`01-04`*0.04+`05-09`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85+`*0.015) %>% 
+  select(Year, Sex, Cause, ASMR)
+
+#Plot
+ggplot(ONS8593, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+bind_rows(ONS8593, ONS9400, ONS0122) %>% 
+  ggplot(aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_vline(xintercept=2000.5, colour="grey60")+
+  geom_vline(xintercept=1993.5, colour="grey60")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+#1979-1984
+temp <- tempfile()
+url <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/1979-1984-icd9a.zip"
+temp <- unzip(curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb"))
+
+raw7981 <- read_excel(temp, sheet="icd9_1")
+raw8284 <- read_excel(temp, sheet="icd9_2")
+
+data7984 <- bind_rows(raw7981, raw8284) %>% 
+  mutate(ICD_9.3=as.integer(substr(ICD_9,1,3)),
+         ICD_9.4=as.integer(substr(ICD_9,4,4)),
+         Year=as.integer(yr),
+         Sex=if_else(sex==1, "Male", "Female"),
+         Cause=case_when(
+           ICD_9.3 %in% c(140:239) ~ "Cancers",
+           ICD_9.3 %in% c(570:573) ~ "Liver disease",
+           ICD_9.3==250 ~ "Diabetes",
+           ICD_9.3 %in% c(401:404) ~ "Circulatory",
+           ICD_9.3 %in% c(410:414, 429) ~ "Ischaemic heart",
+           ICD_9.3 %in% c(430:438, 46, 348) ~ "Cerebrovascular",
+           ICD_9.3 %in% c(460:466, 477:517) ~ "Respiratory",
+           ICD_9.3 %in% c(240:246, 251:279) ~ "Endocrine or metabolic")) %>% 
+  filter(!is.na(Cause)) %>% 
+  group_by(age, Sex, Year, Cause) %>% 
+  summarise(Deaths=sum(ndths), .groups="drop")
+
+ONS7984 <- data7984 %>% 
+  rename(Age="age") %>% 
+  merge(ONSpop19012000, all.x=TRUE) 
+
+ONS7984 <- ONS7984 %>%
+  bind_rows(ONS7984 %>% 
+              group_by(Age, Year, Cause) %>% 
+              summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+              mutate(Sex="Total")) %>% 
+  mutate(mx=Deaths*100000/Pop) %>% 
+  select(-c(Deaths, Pop)) %>% 
+  spread(Age, mx) %>% 
+  mutate(across(.cols=c(4:22), ~ if_else(is.na(.x), 0, .x))) %>% 
+  mutate(ASMR=`<1`*0.01+`01-04`*0.04+`05-09`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85+`*0.015) %>% 
+  select(Year, Sex, Cause, ASMR)
+
+#Plot
+ggplot(ONS7984, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+bind_rows(ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  ggplot(aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_vline(xintercept=2000.5, colour="grey60")+
+  geom_vline(xintercept=1993.5, colour="grey60")+
+  geom_vline(xintercept=1984.5, colour="grey60")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+#1968-1978
+temp <- tempfile()
+url <- "https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808mp_/http://www.ons.gov.uk/ons/rel/subnational-health1/the-20th-century-mortality-files/20th-century-deaths/1968-1978-icd8.zip"
+temp <- unzip(curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb"))
+
+raw6871 <- read_excel(temp, sheet="icd8_1")
+raw7275 <- read_excel(temp, sheet="icd8_2")
+raw7678 <- read_excel(temp, sheet="icd8_3")
+
+data6878 <- bind_rows(raw6871, raw7275, raw7678) %>% 
+  mutate(ICD_8.3=as.integer(substr(ICD_8,1,3)),
+         ICD_8.4=as.integer(substr(ICD_8,4,4)),
+         Year=as.integer(yr),
+         Sex=if_else(sex==1, "Male", "Female"),
+         Cause=case_when(
+           ICD_8.3 %in% c(140:239) ~ "Cancers",
+           ICD_8.3 %in% c(570:573) ~ "Liver disease",
+           ICD_8.3==250 ~ "Diabetes",
+           ICD_8.3 %in% c(401:404) ~ "Circulatory",
+           ICD_8.3 %in% c(410:414, 429) ~ "Ischaemic heart",
+           ICD_8.3 %in% c(430:438, 46, 348) ~ "Cerebrovascular",
+           ICD_8.3 %in% c(460:466, 477:517) ~ "Respiratory",
+           ICD_8.3 %in% c(240:246, 251:279) ~ "Endocrine or metabolic")) %>% 
+  filter(!is.na(Cause)) %>% 
+  group_by(age, Sex, Year, Cause) %>% 
+  summarise(Deaths=sum(ndths), .groups="drop")
+
+ONS6878 <- data6878 %>% 
+  rename(Age="age") %>% 
+  merge(ONSpop19012000, all.x=TRUE) 
+
+ONS6878 <- ONS6878 %>%
+  bind_rows(ONS6878 %>% 
+              group_by(Age, Year, Cause) %>% 
+              summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+              mutate(Sex="Total")) %>% 
+  mutate(mx=Deaths*100000/Pop) %>% 
+  select(-c(Deaths, Pop)) %>% 
+  spread(Age, mx) %>% 
+  mutate(across(.cols=c(4:22), ~ if_else(is.na(.x), 0, .x))) %>% 
+  mutate(ASMR=`<1`*0.01+`01-04`*0.04+`05-09`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85+`*0.015) %>% 
+  select(Year, Sex, Cause, ASMR)
+
+#Plot
+ggplot(ONS6878, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  ggplot(aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_vline(xintercept=2000.5, colour="grey60")+
+  geom_vline(xintercept=1993.5, colour="grey60")+
+  geom_vline(xintercept=1983.5, colour="grey60")+
+  geom_vline(xintercept=1978.5, colour="grey60")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+
+#Derive conversion factors to adjust diabetes, respiratory and endocrine causes of death
+#That are borked because of changes to coding practices between 1984 and 1993
+DiabetesConv=0.65
+EndocrineConv=0.6
+RespiratoryConv=1.4
+
+LongTermTrends <- bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  mutate(ASMR=case_when(
+    Cause=="Diabetes" & Year %in% c(1984:1992) ~ ASMR*DiabetesConv,
+    Cause=="Endocrine or metabolic" & Year %in% c(1984:1992) ~ ASMR*EndocrineConv,
+    Cause=="Respiratory" & Year %in% c(1984:1992) ~ ASMR*RespiratoryConv,
+    TRUE ~ ASMR))
+
+ggplot(LongTermTrends, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_vline(xintercept=2000.5, colour="grey60")+
+  geom_vline(xintercept=1993.5, colour="grey60")+
+  geom_vline(xintercept=1983.5, colour="grey60")+
+  geom_vline(xintercept=1978.5, colour="grey60")+
+  geom_line()+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Age-standardised mortality rate\nper 100,000")+
+  scale_colour_manual(values=c("#6600cc", "#00cc99", "black"))+
+  scale_linetype_manual(values=c(1,1,2))+
+  facet_wrap(~Cause, scales="free_y")+
+  theme_custom()
+  
+agg_png("Outputs/LongTermDeathsxCauseIndexedAdjusted.png", units="in", width=9, height=6, res=800)
+LongTermTrends %>% 
+  group_by(Sex, Cause) %>% 
+  mutate(index=ASMR/ASMR[Year==1968]) %>% 
+  ungroup() %>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex=="Female") %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+                     breaks=c(0.25, 0.5, 1, 2,3, 4), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled","Tripled",  "Quadrupled"))+
+  scale_colour_manual(values=c("#436cab", "#00a9e2", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  theme_custom()
+
+dev.off()
+
+agg_png("Outputs/LongTermDeathsxCauseIndexedUnadjusted.png", units="in", width=9, height=6, res=800)
+bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  group_by(Sex, Cause) %>% 
+  mutate(index=ASMR/ASMR[Year==1968]) %>% 
+  ungroup() %>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex=="Total") %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+                     breaks=c(0.25, 0.5, 1, 2,3, 4), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled","Tripled",  "Quadrupled"))+
+  scale_colour_manual(values=c("#436cab", "#00a9e2", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  theme_custom()
+
+dev.off()
+
+agg_png("Outputs/LongTermDeathsxCauseIndexedxSex.png", units="in", width=12, height=6, res=800)
+bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  group_by(Sex, Cause) %>% 
+  mutate(index=ASMR/ASMR[Year==1968]) %>% 
+  ungroup() %>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex!="Total") %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+                     breaks=c(0.25, 0.5, 1, 2,3, 4), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled","Tripled",  "Quadrupled"))+
+  scale_colour_manual(values=c("#436cab", "#00a9e2", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  facet_wrap(~Sex)+
+  theme_custom()
+
+dev.off()
+
+
+
+
+#Check out weirdness in respiratory deaths series
+resp <- bind_rows(raw9900, raw9798, raw9496, raw9193, raw8890, raw8587, raw8284, raw7981) %>% 
+  rename(Age="age") %>% 
+  mutate(ICD_9.3=as.integer(substr(ICD_9,1,3)),
+         ICD_9.4=as.integer(substr(ICD_9,4,4)),
+         Year=as.integer(yr),
+         Sex=if_else(sex==1, "Male", "Female")) %>% 
+  #filter(ICD_9.3 %in% c(460:466, 477:517)) %>% 
+  filter(ICD_9==2500 | ICD_9==4850) %>% 
+  merge(ONSpop19012000, all.x=TRUE) %>% 
+  mutate(mx=ndths*100000/Pop) %>% 
+  select(Age, Sex, Year, mx, ICD_9) %>% 
+  spread(Age, mx) %>% 
+  mutate(across(.cols=c(4:22), ~ if_else(is.na(.x), 0, .x))) %>% 
+  mutate(ASMR=`<1`*0.01+`01-04`*0.04+`05-09`*0.055+`10-14`*0.055+`15-19`*0.055+
+           `20-24`*0.06+`25-29`*0.06+`30-34`*0.065+`35-39`*0.07+`40-44`*0.07+
+           `45-49`*0.07+`50-54`*0.07+`55-59`*0.065+`60-64`*0.06+`65-69`*0.055+
+           `70-74`*0.05+`75-79`*0.04+`80-84`*0.025+`85+`*0.015) %>% 
+  select(Year, Sex, ICD_9, ASMR)
+
+ggplot(resp %>% filter(Sex=="Male"), aes(x=Year, y=ASMR, colour=ICD_9))+
+  geom_hline(yintercept=0, colour="grey20")+
+  geom_line(aes(label=ICD_9))+
+  #geom_vline(xintercept=1993.5, colour="grey60")+
+  #geom_vline(xintercept=1984.5, colour="grey60")+
+  facet_wrap(~ICD_9, scales="free_y")+
+  scale_x_continuous(name="")+
+  scale_colour_manual(values=c("orange", "navyblue"))+
+  theme_custom()+
+  theme(legend.position="none")
+         
+test <- raw8284 %>% group_by(ICD_9, yr) %>% 
+  summarise(dx=sum(ndths), .groups="drop")
+         
 ##################################################
 #Data already cleaned is available from mortality.org https://www.mortality.org/Country/HCDCountry?cntr=GBRTENW
 #Can't download directly from the HMD website, so have to download the pre-2001 data and save it locally
@@ -2617,5 +3063,19 @@ ggplot(HCODdata %>% filter(sex=="Overall"), aes(x=year, y=index, colour=Cause))+
                      breaks=c(0.25, 0.5, 1, 2, 4), limits=c(0,4.5),
                      labels=c("Quartered", "Halved", "No change", "Doubled", "Quadrupled"))+
   scale_colour_manual(values=c("#00a7c9", "#00a9e2", "#9b4494", "#b11048", "#436cab", "#ca9c54"))+
+  #facet_wrap(~sex)+
+  theme_custom()
+
+ggplot(HCODdata %>% filter(sex=="Overall" & Cause %in% c("Diabetes", "Respiratory diseases")), 
+       aes(x=year, y=ASMR/10, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  #scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+  #                   breaks=c(0.25, 0.5, 1, 2, 4), limits=c(0,4.5),
+  #                   labels=c("Quartered", "Halved", "No change", "Doubled", "Quadrupled"))+
+  #scale_colour_manual(values=c("#00a7c9", "#00a9e2", "#9b4494", "#b11048", "#436cab", "#ca9c54"))+
+  scale_colour_manual(values=c("orange", "navyblue"))+
+  
   #facet_wrap(~sex)+
   theme_custom()
