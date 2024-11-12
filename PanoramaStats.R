@@ -418,20 +418,20 @@ Datafull <- olddata %>%
   mutate(BirthYear=year-age) %>% 
   merge(CohortDefs, all.x=TRUE) %>% 
   mutate(mean_adjuster=case_when(
-           age>=16 & age<25 & sex=="Male" ~ wineadj$ratio[1],
-           age>=25 & age<45 & sex=="Male" ~ wineadj$ratio[2],
-           age>=45 & age<65 & sex=="Male" ~ wineadj$ratio[3],
-           age>=65 & age<100 & sex=="Male" ~ wineadj$ratio[4],
-           age>=16 & age<25 & sex=="Female" ~ wineadj$ratio[5],
-           age>=25 & age<45 & sex=="Female" ~ wineadj$ratio[6],
-           age>=45 & age<65 & sex=="Female" ~ wineadj$ratio[7],
-           age>=65 & age<100 & sex=="Female" ~ wineadj$ratio[8]),
-         d7unitwg=if_else(d7unitwg==-9, NA, d7unitwg),
-         totalwu_adj=if_else(year>=2006, totalwu,
-                             totalwu*(1+(mean_adjuster-1)*(year-1986)/(2006-1986))),
-         d7unitwg_adj=if_else(year>=2006, d7unitwg,
-                              d7unitwg*(1+(mean_adjuster-1)*(year-1986)/(2006-1986))),
-         d7unitwg=if_else(survey=="HSE" & is.na(d7unitwg), 0, d7unitwg)) %>% 
+    age>=16 & age<25 & sex=="Male" ~ wineadj$ratio[1],
+    age>=25 & age<45 & sex=="Male" ~ wineadj$ratio[2],
+    age>=45 & age<65 & sex=="Male" ~ wineadj$ratio[3],
+    age>=65 & age<100 & sex=="Male" ~ wineadj$ratio[4],
+    age>=16 & age<25 & sex=="Female" ~ wineadj$ratio[5],
+    age>=25 & age<45 & sex=="Female" ~ wineadj$ratio[6],
+    age>=45 & age<65 & sex=="Female" ~ wineadj$ratio[7],
+    age>=65 & age<100 & sex=="Female" ~ wineadj$ratio[8]),
+    d7unitwg=if_else(d7unitwg==-9, NA, d7unitwg),
+    totalwu_adj=if_else(year>=2006, totalwu,
+                        totalwu*(1+(mean_adjuster-1)*(year-1986)/(2006-1986))),
+    d7unitwg_adj=if_else(year>=2006, d7unitwg,
+                         d7unitwg*(1+(mean_adjuster-1)*(year-1986)/(2006-1986))),
+    d7unitwg=if_else(survey=="HSE" & is.na(d7unitwg), 0, d7unitwg)) %>% 
   rename(peakday="d7unitwg", weekmean="totalwu")
 
 write.csv(Datafull, "Data/DatafullHSEGLF.csv")
@@ -543,7 +543,7 @@ CohortBinge <- Datafull %>%
 CohortBingeProp <- Datafull %>% 
   filter(abstainerderive==0) %>% 
   mutate(peakday=if_else(is.na(peakday), 0, peakday),
-    binge=if_else(peakday>6, 1, 0)) %>% 
+         binge=if_else(peakday>6, 1, 0)) %>% 
   group_by(sex, age, Cohort) %>% 
   summarise(bingeprop=weighted.mean(binge, wt_int, na.rm=TRUE), .groups="drop") %>% 
   bind_rows(Cohorts21, Cohorts22)
@@ -699,16 +699,16 @@ SDatafull %>%
 #Cohort-specific trends
 #Bring in data from 2021 and 2022 using some simplifying assumptions
 SHeS2021 <- data.frame(ageband=rep(c("16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"), times=2),
-                      sex=rep(c("Male", "Female"), each=7),
-                      abstainerprop=c(0.21, 0.12, 0.13, 0.15, 0.13, 0.18, 0.2, 0.22, 0.16, 0.18, 0.17, 0.15, 0.15, 0.3),
-                      weekmean=c(9.8, 12.8, 15.1, 17.7, 15.9, 17.6, 12.4, 6.9, 5.3, 7.6, 10, 10, 8.7, 5.9),
-                      bingeprop=c(0.17, 0.25, 0.22, 0.17, 0.18, 0.14, 0.05, 0.14, 0.14, 0.11, 0.2, 0.1, 0.08, 0.01))
+                       sex=rep(c("Male", "Female"), each=7),
+                       abstainerprop=c(0.21, 0.12, 0.13, 0.15, 0.13, 0.18, 0.2, 0.22, 0.16, 0.18, 0.17, 0.15, 0.15, 0.3),
+                       weekmean=c(9.8, 12.8, 15.1, 17.7, 15.9, 17.6, 12.4, 6.9, 5.3, 7.6, 10, 10, 8.7, 5.9),
+                       bingeprop=c(0.17, 0.25, 0.22, 0.17, 0.18, 0.14, 0.05, 0.14, 0.14, 0.11, 0.2, 0.1, 0.08, 0.01))
 
 SHeS2022 <- data.frame(ageband=rep(c("16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"), times=2),
-                      sex=rep(c("Male", "Female"), each=7),
-                      abstainerprop=c(0.26, 0.14, 0.18, 0.17, 0.15, 0.24, 0.26, 0.27, 0.21, 0.2, 0.19, 0.2, 0.27, 0.33),
-                      weekmean=c(20.5, 13.3, 16.5, 19.2, 16.1, 15.8, 14.9, 10.9, 8, 8.6, 8.6, 10.9, 8.7, 6.2),
-                      bingeprop=c(0.22, 0.18, 0.19, 0.22, 0.2, 0.11, 0.03, 0.18, 0.15, 0.21, 0.14, 0.13, 0.03, 0.01))
+                       sex=rep(c("Male", "Female"), each=7),
+                       abstainerprop=c(0.26, 0.14, 0.18, 0.17, 0.15, 0.24, 0.26, 0.27, 0.21, 0.2, 0.19, 0.2, 0.27, 0.33),
+                       weekmean=c(20.5, 13.3, 16.5, 19.2, 16.1, 15.8, 14.9, 10.9, 8, 8.6, 8.6, 10.9, 8.7, 6.2),
+                       bingeprop=c(0.22, 0.18, 0.19, 0.22, 0.2, 0.11, 0.03, 0.18, 0.15, 0.21, 0.14, 0.13, 0.03, 0.01))
 
 #Align to cohorts
 SCohorts21 <- data.frame(age=rep(c(16:85), times=2), sex=rep(c("Male", "Female"), each=85-16+1)) %>% 
@@ -2169,7 +2169,7 @@ Rawsmoothed <- bind_rows(mx_smoothed1D1, mx_smoothed1D2) %>%
 MortCohorts <- Rawsmoothed %>% filter(Cause=="Alcohol") %>% 
   mutate(BirthYear=Year-Age) %>% 
   merge(CohortDefs, all.x=TRUE)
-  
+
 agg_png("Outputs/ARLDCohortsEng.png", units="in", width=9, height=6, res=800)
 ggplot(MortCohorts %>% filter(Sex=="Female" & Country=="England & Wales" & BirthYear<=2004), 
        aes(x=Age, y=mx_smt1D*100000, colour=Cohort))+
@@ -2562,24 +2562,24 @@ working1 <- rawdata %>%
 
 #Bring in population data
 ewpop <- readHMDweb(CNTRY="GBRTENW", "Population", key_list("mortality.org")[1,2], 
-                      key_get("mortality.org", key_list("mortality.org")[1,2]), fixup=TRUE) %>% 
-    mutate(Age=as.numeric(Age), Age=if_else(is.na(Age), 110, Age)) 
-  
+                    key_get("mortality.org", key_list("mortality.org")[1,2]), fixup=TRUE) %>% 
+  mutate(Age=as.numeric(Age), Age=if_else(is.na(Age), 110, Age)) 
+
 ewpop <- bind_rows(ewpop %>% filter(Year==2021) %>% 
-                       select("Year", "Age", "Male2", "Female2") %>% 
-                       mutate(Year=2022) %>% 
-                       set_names(c("Year", "Age", "Male", "Female")),
-                     ewpop %>% select(c("Year", "Age", "Male1", "Female1")) %>% 
-                       set_names(c("Year", "Age", "Male", "Female"))) %>% 
-    gather(Sex, Ex, c("Male", "Female")) %>% 
-    mutate(Age5=case_when(
-             Age<1 ~ "Under 1", Age<5 ~ "1-4", Age<10 ~ "5-9", Age<15 ~ "10-14", Age<20 ~ "15-19", Age<25 ~ "20-24",
-             Age<30 ~ "25-29", Age<35 ~ "30-34", Age<40 ~ "35-39", Age<45 ~ "40-44", Age<50 ~ "45-49", Age<55 ~ "50-54",
-             Age<60 ~ "55-59", Age<65 ~ "60-64", Age<70 ~ "65-69", Age<75 ~ "70-74", Age<80 ~ "75-79", Age<85 ~ "80-84",
-             Age<90 ~ "85-89", Age>=90 ~ "90+")) %>% 
-    group_by(Year, Sex, Age5) %>% 
-    summarise(Pop=sum(Ex), .groups="drop")
-  
+                     select("Year", "Age", "Male2", "Female2") %>% 
+                     mutate(Year=2022) %>% 
+                     set_names(c("Year", "Age", "Male", "Female")),
+                   ewpop %>% select(c("Year", "Age", "Male1", "Female1")) %>% 
+                     set_names(c("Year", "Age", "Male", "Female"))) %>% 
+  gather(Sex, Ex, c("Male", "Female")) %>% 
+  mutate(Age5=case_when(
+    Age<1 ~ "Under 1", Age<5 ~ "1-4", Age<10 ~ "5-9", Age<15 ~ "10-14", Age<20 ~ "15-19", Age<25 ~ "20-24",
+    Age<30 ~ "25-29", Age<35 ~ "30-34", Age<40 ~ "35-39", Age<45 ~ "40-44", Age<50 ~ "45-49", Age<55 ~ "50-54",
+    Age<60 ~ "55-59", Age<65 ~ "60-64", Age<70 ~ "65-69", Age<75 ~ "70-74", Age<80 ~ "75-79", Age<85 ~ "80-84",
+    Age<90 ~ "85-89", Age>=90 ~ "90+")) %>% 
+  group_by(Year, Sex, Age5) %>% 
+  summarise(Pop=sum(Ex), .groups="drop")
+
 #Combine and age-standardise
 ONS0122 <- working1 %>% 
   merge(ewpop %>% bind_rows(ewpop %>% group_by(Age5, Year) %>% 
@@ -2604,7 +2604,7 @@ ggplot(ONS0122, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
   scale_linetype_manual(values=c(1,1,2))+
   facet_wrap(~Cause, scales="free_y")+
   theme_custom()
-  
+
 #Download older data from 20th Century Mortality Files
 #https://webarchive.nationalarchives.gov.uk/ukgwa/20160111174808/http://www.ons.gov.uk/ons/publications/re-reference-tables.html?edition=tcm%3A77-215593
 
@@ -2651,8 +2651,8 @@ ONS9400 <- data9400 %>%
 ONS9400 <- ONS9400 %>%
   bind_rows(ONS9400 %>% 
               group_by(Age, Year, Cause) %>% 
-  summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
-  mutate(Sex="Total")) %>% 
+              summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+              mutate(Sex="Total")) %>% 
   mutate(mx=Deaths*100000/Pop) %>% 
   select(-c(Deaths, Pop)) %>% 
   spread(Age, mx) %>% 
@@ -2884,6 +2884,7 @@ ggplot(ONS6878, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
   theme_custom()
 
 bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
+  filter(Cause=="Diabetes") %>% 
   ggplot(aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
   geom_hline(yintercept=1, colour="grey20")+
   geom_vline(xintercept=2000.5, colour="grey60")+
@@ -2904,14 +2905,33 @@ DiabetesConv=0.65
 EndocrineConv=0.6
 RespiratoryConv=1.4
 
+#Also apply adjustment factor for 95-98 and 2000 for diabetes
+#https://webarchive.nationalarchives.gov.uk/ukgwa/20200123052316/https://files.digital.nhs.uk/9D/C160D3/Spec_27C_061%20diabetes.pdf
+DiabetesAdj9500M <- 1.044
+DiabetesAdj9500F <- 1.042
+CirculatoryAdj9500M <- 1.010
+CirculatoryAdj9500F <- 1.014
+IschaemicAdj9500M <- 1.005
+IschaemicAdj9500F <- 1.007
+
 LongTermTrends <- bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>% 
   mutate(ASMR=case_when(
     Cause=="Diabetes" & Year %in% c(1984:1992) ~ ASMR*DiabetesConv,
     Cause=="Endocrine or metabolic" & Year %in% c(1984:1992) ~ ASMR*EndocrineConv,
     Cause=="Respiratory" & Year %in% c(1984:1992) ~ ASMR*RespiratoryConv,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ ASMR * DiabetesAdj9500M,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ ASMR * DiabetesAdj9500F,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) ~ ASMR * (DiabetesAdj9500F+DiabetesAdj9500M)/2,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ ASMR * CirculatoryAdj9500M,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ ASMR * CirculatoryAdj9500F,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) ~ ASMR * (CirculatoryAdj9500F+CirculatoryAdj9500M)/2,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ ASMR * IschaemicAdj9500M,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ ASMR * IschaemicAdj9500F,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) ~ ASMR * (IschaemicAdj9500F+IschaemicAdj9500M)/2,
     TRUE ~ ASMR))
 
-ggplot(LongTermTrends, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
+ggplot(LongTermTrends %>% filter(Cause=="Ischaemic heart"), 
+       aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
   geom_hline(yintercept=1, colour="grey20")+
   geom_vline(xintercept=2000.5, colour="grey60")+
   geom_vline(xintercept=1993.5, colour="grey60")+
@@ -2924,13 +2944,13 @@ ggplot(LongTermTrends, aes(x=Year, y=ASMR, colour=Sex, linetype=Sex))+
   scale_linetype_manual(values=c(1,1,2))+
   facet_wrap(~Cause, scales="free_y")+
   theme_custom()
-  
+
 agg_png("Outputs/LongTermDeathsxCauseIndexedAdjusted.png", units="in", width=9, height=6, res=800)
 LongTermTrends %>% 
   group_by(Sex, Cause) %>% 
   mutate(index=ASMR/ASMR[Year==1968]) %>% 
   ungroup() %>% 
-  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex=="Female") %>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex=="Total") %>% 
   mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
                                       "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
   ggplot(aes(x=Year, y=index, colour=Cause))+
@@ -2941,6 +2961,27 @@ LongTermTrends %>%
                      breaks=c(0.25, 0.5, 1, 2,3, 4), trans="log",
                      labels=c("Quartered", "Halved", "No change", "Doubled","Tripled",  "Quadrupled"))+
   scale_colour_manual(values=c("#436cab", "#00a9e2", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  theme_custom()
+
+dev.off()
+
+agg_png("Outputs/LongTermDeathsxCauseIndexedAdjustedxSex.png", units="in", width=11, height=6, res=800)
+LongTermTrends %>% 
+  group_by(Sex, Cause) %>% 
+  mutate(index=ASMR/ASMR[Year==1968]) %>% 
+  ungroup() %>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory") & Sex!="Total") %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="")+
+  scale_y_continuous(name="Change in age-standardised mortality rate\nsince 1968", 
+                     breaks=c(0.25, 0.5, 1, 2,3, 4), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled","Tripled",  "Quadrupled"))+
+  scale_colour_manual(values=c("#436cab", "#00a9e2", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  facet_wrap(~Sex)+
   theme_custom()
 
 dev.off()
@@ -3019,10 +3060,10 @@ ggplot(resp %>% filter(Sex=="Male"), aes(x=Year, y=ASMR, colour=ICD_9))+
   scale_colour_manual(values=c("orange", "navyblue"))+
   theme_custom()+
   theme(legend.position="none")
-         
+
 test <- raw8284 %>% group_by(ICD_9, yr) %>% 
   summarise(dx=sum(ndths), .groups="drop")
-         
+
 ##################################################
 #Data already cleaned is available from mortality.org https://www.mortality.org/Country/HCDCountry?cntr=GBRTENW
 #Can't download directly from the HMD website, so have to download the pre-2001 data and save it locally
@@ -3079,3 +3120,8 @@ ggplot(HCODdata %>% filter(sex=="Overall" & Cause %in% c("Diabetes", "Respirator
   
   #facet_wrap(~sex)+
   theme_custom()
+
+
+####################################
+#Nonsense comparing the different time series
+#Import WHO HFA data
