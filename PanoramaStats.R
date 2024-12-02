@@ -3027,6 +3027,79 @@ bind_rows(ONS6878, ONS7984, ONS8593, ONS9400, ONS0122) %>%
 
 dev.off()
 
+#####
+#35-44 year old women only version
+
+plot3544data <- bind_rows(data6878, data7984, data8593, data9400) %>% 
+  bind_rows(working1 %>% rename(age="Age5")) %>% 
+  filter(Sex=="Female" & age %in% c("35-39", "40-44")) %>% 
+  mutate(Deaths=case_when(
+    Cause=="Diabetes" & Year %in% c(1984:1992) ~ Deaths*DiabetesConv,
+    Cause=="Endocrine or metabolic" & Year %in% c(1984:1992) ~ Deaths*EndocrineConv,
+    Cause=="Respiratory" & Year %in% c(1984:1992) ~ Deaths*RespiratoryConv,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ Deaths * DiabetesAdj9500M,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ Deaths * DiabetesAdj9500F,
+    Cause=="Diabetes" & Year %in% c(1993:1998, 2000) ~ Deaths * (DiabetesAdj9500F+DiabetesAdj9500M)/2,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ Deaths * CirculatoryAdj9500M,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ Deaths * CirculatoryAdj9500F,
+    Cause=="Circulatory" & Year %in% c(1993:1998, 2000) ~ Deaths * (CirculatoryAdj9500F+CirculatoryAdj9500M)/2,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) & Sex=="Male" ~ Deaths * IschaemicAdj9500M,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) & Sex=="Female" ~ Deaths * IschaemicAdj9500F,
+    Cause=="Ischaemic heart" & Year %in% c(1993:1998, 2000) ~ Deaths * (IschaemicAdj9500F+IschaemicAdj9500M)/2,
+    TRUE ~ Deaths)) %>% 
+  merge(ewpop %>% rename(age="Age5")) %>% 
+  group_by(Year, Cause) %>% 
+  summarise(Deaths=sum(Deaths), Pop=sum(Pop), .groups="drop") %>% 
+  mutate(Rate=Deaths*100000/Pop) %>% 
+  group_by(Cause) %>% 
+  mutate(index=Rate/Rate[Year==1968]) %>% 
+  ungroup()
+  
+agg_png("Outputs/LongTermMortalityTrendsFemale3544.png", units="in", width=11.7, height=8.3, res=800)
+
+plot3544data%>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory")) %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="", breaks=c(1968, 1980, 2000, 2020))+
+  scale_y_continuous(name="Change in mortality rate since 1968", 
+                     breaks=c(0.25, 0.5, 1, 2,4,8), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled","Quadrupled", "Octupled"))+
+  scale_colour_manual(values=c("#436cab", "#00a9e2", "forestgreen",  "#ca9c54", "#9b4494", "#b11048"))+
+  theme_custom()+
+  labs(title="Acceleration in Liver Disease Death Rates Compared With Other Major Diseases",
+       subtitle="Women aged 35-44\n")+
+  theme(plot.subtitle=element_text(face="bold", colour="grey20", size=rel(2.2)),
+        plot.title=element_text(size=rel(2)))
+
+dev.off()
+
+agg_png("Outputs/LongTermMortalityTrendsFemale3544v2.png", units="in", width=12, height=6, res=800)
+
+plot3544data%>% 
+  filter(!Cause %in% c("Endocrine or metabolic", "Circulatory")) %>% 
+  mutate(Cause=factor(Cause, levels=c("Liver disease", "Diabetes", "Cancers",
+                                      "Respiratory", "Ischaemic heart", "Cerebrovascular"))) %>% 
+  ggplot(aes(x=Year, y=index, colour=Cause))+
+  geom_hline(yintercept=1, colour="grey20")+
+  geom_line(linewidth=1)+
+  scale_x_continuous(name="", breaks=c(1968, 1980, 2000, 2020))+
+  scale_y_continuous(name="Change in mortality rate since 1968", 
+                     breaks=c(0.25, 0.5, 1, 2, 4,8), trans="log",
+                     labels=c("Quartered", "Halved", "No change", "Doubled",  "Quadrupled", "Octupled"))+
+  scale_colour_manual(values=c("#436cab", "#FF7F50", "#00a7c9",  "#ca9c54", "#9b4494", "#b11048"))+
+  theme_custom()+
+  labs(title="Acceleration in liver disease death rates compared with other major diseases",
+       subtitle="Women aged 35-44\n")+
+  theme(plot.subtitle=element_text(face="bold", colour="grey20"))
+
+dev.off()
+
+
+
 
 
 
