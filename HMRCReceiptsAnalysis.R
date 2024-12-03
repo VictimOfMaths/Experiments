@@ -61,22 +61,22 @@ old.data <- data.frame(Wine=raw.wine$Wine, Spirits=raw.spirits$Spirits, Beer=raw
 #Add in more recent data from the latest version of the alcohol duty bulletin
 #https://www.gov.uk/government/statistics/alcohol-bulletin
 temp <- tempfile()
-url <- "https://assets.publishing.service.gov.uk/media/66c5f3fe95bd109d30d76666/Alc_Tables_Jul_24.ods"
+url <- "https://assets.publishing.service.gov.uk/media/6746ef637a52b1e407d7773b/Alc_Tables_Oct24.ods"
 temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
-raw.wine.latest <- read_ods(temp, sheet="Wine", range="H19:I30", 
+raw.wine.latest <- read_ods(temp, sheet="Wine", range="H19:I33", 
                             col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
-raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="J19:K30", 
+raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="J19:K33", 
                                col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
-raw.beer.latest <- read_ods(temp, sheet="Beer", range="O21:O32", 
+raw.beer.latest <- read_ods(temp, sheet="Beer", range="O22:O36", 
                             col_names=FALSE) %>% 
   set_names("Beer")
 
-raw.cider.latest <- read_ods(temp, sheet="Cider", range="J20:J31", 
+raw.cider.latest <- read_ods(temp, sheet="Cider", range="J20:J34", 
                              col_names=FALSE) %>% 
   set_names("Cider")
 
@@ -148,6 +148,7 @@ CPIdata %>% filter(Date>=as.Date("2010-01-01")) %>%
   filter(Drink!="Alcohol") %>% 
   mutate(Drink=factor(Drink, levels=c("All goods and services", "Beer", "Spirits", "Wine"))) %>% 
   ggplot(aes(x=Date, y=Index, colour=Drink))+
+  geom_hline(yintercept=1, colour="grey20")+
   geom_line()+
   scale_x_date(name="")+
   scale_y_continuous(name="Change since January 2010", trans="log", breaks=c(1, 1.2, 1.4),
