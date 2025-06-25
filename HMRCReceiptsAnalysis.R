@@ -82,19 +82,21 @@ temp <- tempfile()
 url <- "https://assets.publishing.service.gov.uk/media/67bf38f5750837d7604dbbc9/Alc_Tables_Jan25.ods"
 temp <- curl_download(url=url, destfile=temp, quiet=FALSE, mode="wb")
 
-raw.wine.latest <- read_ods(temp, sheet="Wine", range="H20:I37", 
+#25/06/25 - the url above now redirects to the most recent version of the data, so I've updated the ranges below
+#This means the analysis produced here goes 3 months beyond the published paper
+raw.wine.latest <- read_ods(temp, sheet="Wine", range="H21:I41", 
                             col_names=FALSE) %>% 
   set_names("Wine", "AllAlcohol")
 
-raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="J21:K38", 
+raw.spirits.latest <- read_ods(temp, sheet="Spirits", range="J24:K44", 
                                col_names=FALSE) %>% 
   set_names("Spirits", "AllAlcohol") 
 
-raw.beer.latest <- read_ods(temp, sheet="Beer", range="O23:O40", 
+raw.beer.latest <- read_ods(temp, sheet="Beer", range="O24:O44", 
                             col_names=FALSE) %>% 
   set_names("Beer")
 
-raw.cider.latest <- read_ods(temp, sheet="Cider", range="J21:J38", 
+raw.cider.latest <- read_ods(temp, sheet="Cider", range="J22:J42", 
                              col_names=FALSE) %>% 
   set_names("Cider")
 
